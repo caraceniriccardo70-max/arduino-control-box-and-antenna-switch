@@ -1,13 +1,4 @@
-/*
- * ═══════════════════════════════════════════════════════════════════════════
- *  9A8DV REMOTE CONTROL SYSTEM v2.1
- *  Professional Antenna & Rotor Controller
- *  
- *  New Features:
- *  - Rotor Power ON/OFF switch (Relay A3)
- *  - LED indicators at 40% brightness
- * ═══════════════════════════════════════════════════════════════════════════
- */
+
 
 import processing.serial.*;
 import java.util.*;
