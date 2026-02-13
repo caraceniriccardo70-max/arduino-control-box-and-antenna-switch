@@ -287,7 +287,6 @@ ArrayList<String> debugLog = new ArrayList<String>();
 String[] tempAntennaNames = new String[6];
 int[] tempAntennaPins = new int[6];
 boolean[] tempAntennaDirective = new boolean[6];
-String tempComPort = "COM4";
 int editingField = -1;
 String inputBuffer = "";
 int currentSettingsTab = 0;
@@ -909,71 +908,192 @@ void drawCheckbox(float x, float y, boolean checked, int idx) {
 }
 
 void drawConnectionSettings(float px, float py) {
-  fill(theme.text);
+  // ========== ESP32 ANTENNA SWITCH SECTION ==========
+  fill(theme.accent);
   textFont(fontBold);
   textSize(12);
   textAlign(LEFT, TOP);
-  text("PORTE DISPONIBILI:", px + 30, py);
+  text("ESP32 ANTENNA SWITCH", px + 30, py);
   
-  if (availablePorts != null && availablePorts.length > 0) {
-    float btnW = 100, btnH = 30, gap = 10;
+  // WiFi/USB Toggle
+  float toggleY = py + 25;
+  float toggleW = 60, toggleH = 25, toggleGap = 10;
+  
+  boolean usbHover = mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > toggleY && mouseY < toggleY + toggleH;
+  boolean wifiHover = mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > toggleY && mouseY < toggleY + toggleH;
+  
+  fill(antConnMode == 0 ? theme.accent : (usbHover ? theme.hover : theme.secondary));
+  stroke(antConnMode == 0 ? theme.accent : theme.border);
+  rect(px + 30, toggleY, toggleW, toggleH, 6);
+  
+  fill(antConnMode == 1 ? theme.accent : (wifiHover ? theme.hover : theme.secondary));
+  stroke(antConnMode == 1 ? theme.accent : theme.border);
+  rect(px + 30 + toggleW + toggleGap, toggleY, toggleW, toggleH, 6);
+  
+  fill(antConnMode == 0 ? theme.primary : theme.text);
+  textFont(fontBold);
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text("USB", px + 30 + toggleW/2, toggleY + toggleH/2);
+  
+  fill(antConnMode == 1 ? theme.primary : theme.text);
+  text("WiFi", px + 30 + toggleW + toggleGap + toggleW/2, toggleY + toggleH/2);
+  
+  float configY = toggleY + 35;
+  
+  if (antConnMode == 0) {
+    // USB Mode - Show COM ports
+    fill(theme.text);
+    textFont(fontRegular);
+    textSize(10);
+    textAlign(LEFT, CENTER);
+    text("Porta: " + antComPort, px + 30, configY);
     
-    for (int i = 0; i < min(availablePorts.length, 6); i++) {
-      float bx = px + 30 + (i % 3) * (btnW + gap);
-      float by = py + 30 + (i / 3) * (btnH + gap);
-      
-      boolean selected = availablePorts[i]. equals(comPort);
-      boolean hover = mouseX > bx && mouseX < bx + btnW && mouseY > by && mouseY < by + btnH;
-      
-      fill(selected ? theme.accent : hover ? theme.hover : theme.secondary);
-      stroke(selected ? theme.accent : theme.border);
-      strokeWeight(selected ? 2 : 1);
-      rect(bx, by, btnW, btnH, 6);
-      
-      fill(selected ?  theme.primary : theme.text);
-      textFont(fontRegular);
-      textSize(10);
-      textAlign(CENTER, CENTER);
-      text(availablePorts[i], bx + btnW/2, by + btnH/2);
+    // Mini port selector
+    if (availablePorts != null && availablePorts.length > 0) {
+      float portBtnW = 70, portBtnH = 22;
+      for (int i = 0; i < min(availablePorts.length, 4); i++) {
+        float pbx = px + 120 + i * (portBtnW + 5);
+        boolean portSelected = availablePorts[i].equals(antComPort);
+        boolean portHover = mouseX > pbx && mouseX < pbx + portBtnW && mouseY > configY - 11 && mouseY < configY + 11;
+        
+        fill(portSelected ? theme.accent : (portHover ? theme.hover : theme.secondary));
+        stroke(portSelected ? theme.accent : theme.border);
+        rect(pbx, configY - 11, portBtnW, portBtnH, 4);
+        
+        fill(portSelected ? theme.primary : theme.text);
+        textAlign(CENTER, CENTER);
+        textSize(9);
+        text(availablePorts[i], pbx + portBtnW/2, configY);
+      }
     }
   } else {
-    fill(theme.textDim);
+    // WiFi Mode - Show IP and Port
+    fill(theme.text);
     textFont(fontRegular);
-    textSize(11);
-    text("Nessuna porta trovata", px + 30, py + 35);
+    textSize(10);
+    textAlign(LEFT, CENTER);
+    text("IP: " + antWifiIP + ":" + antWifiPort, px + 30, configY);
   }
   
-  float btnY = py + 110;
+  // Connect/Disconnect Button
+  float antBtnY = configY + 30;
+  color antConnColor = antConnected ? theme.error : theme.success;
+  String antConnText = antConnected ? "DISCONNETTI" : "CONNETTI";
+  boolean antConnHover = mouseX > px + 30 && mouseX < px + 150 && mouseY > antBtnY && mouseY < antBtnY + 32;
   
-  color connBtnColor = arduinoConnected ? theme.error : theme.success;
-  String connBtnText = arduinoConnected ? "DISCONNETTI" : "CONNETTI";
-  boolean connHover = mouseX > px + 30 && mouseX < px + 180 && mouseY > btnY && mouseY < btnY + 38;
-  
-  fill(connHover ? lerpColor(connBtnColor, theme.text, 0.2) : connBtnColor);
-  stroke(connBtnColor);
-  rect(px + 30, btnY, 150, 38, 8);
+  fill(antConnHover ? lerpColor(antConnColor, theme.text, 0.2) : antConnColor);
+  stroke(antConnColor);
+  rect(px + 30, antBtnY, 120, 32, 6);
   
   fill(theme.primary);
   textFont(fontBold);
-  textSize(11);
+  textSize(10);
   textAlign(CENTER, CENTER);
-  text(connBtnText, px + 105, btnY + 19);
+  text(antConnText, px + 90, antBtnY + 16);
   
-  boolean scanHover = mouseX > px + 200 && mouseX < px + 310 && mouseY > btnY && mouseY < btnY + 38;
-  fill(scanHover ? lerpColor(theme.warning, theme.text, 0.2) : theme.warning);
-  stroke(theme.warning);
-  rect(px + 200, btnY, 110, 38, 8);
+  // Status LED
+  float ledX = px + 160;
+  fill(antConnected ? theme.success : theme.error);
+  noStroke();
+  ellipse(ledX, antBtnY + 16, 10, 10);
+  
+  // ========== ESP32 ROTORE SECTION ==========
+  float rotY = antBtnY + 50;
+  fill(theme.accent);
+  textFont(fontBold);
+  textSize(12);
+  textAlign(LEFT, TOP);
+  text("ESP32 ROTORE", px + 30, rotY);
+  
+  // WiFi/USB Toggle
+  float rotToggleY = rotY + 25;
+  
+  boolean rotUsbHover = mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > rotToggleY && mouseY < rotToggleY + toggleH;
+  boolean rotWifiHover = mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > rotToggleY && mouseY < rotToggleY + toggleH;
+  
+  fill(rotConnMode == 0 ? theme.accent : (rotUsbHover ? theme.hover : theme.secondary));
+  stroke(rotConnMode == 0 ? theme.accent : theme.border);
+  rect(px + 30, rotToggleY, toggleW, toggleH, 6);
+  
+  fill(rotConnMode == 1 ? theme.accent : (rotWifiHover ? theme.hover : theme.secondary));
+  stroke(rotConnMode == 1 ? theme.accent : theme.border);
+  rect(px + 30 + toggleW + toggleGap, rotToggleY, toggleW, toggleH, 6);
+  
+  fill(rotConnMode == 0 ? theme.primary : theme.text);
+  textFont(fontBold);
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text("USB", px + 30 + toggleW/2, rotToggleY + toggleH/2);
+  
+  fill(rotConnMode == 1 ? theme.primary : theme.text);
+  text("WiFi", px + 30 + toggleW + toggleGap + toggleW/2, rotToggleY + toggleH/2);
+  
+  float rotConfigY = rotToggleY + 35;
+  
+  if (rotConnMode == 0) {
+    // USB Mode
+    fill(theme.text);
+    textFont(fontRegular);
+    textSize(10);
+    textAlign(LEFT, CENTER);
+    text("Porta: " + rotComPort, px + 30, rotConfigY);
+    
+    if (availablePorts != null && availablePorts.length > 0) {
+      float portBtnW = 70, portBtnH = 22;
+      for (int i = 0; i < min(availablePorts.length, 4); i++) {
+        float pbx = px + 120 + i * (portBtnW + 5);
+        boolean portSelected = availablePorts[i].equals(rotComPort);
+        boolean portHover = mouseX > pbx && mouseX < pbx + portBtnW && mouseY > rotConfigY - 11 && mouseY < rotConfigY + 11;
+        
+        fill(portSelected ? theme.accent : (portHover ? theme.hover : theme.secondary));
+        stroke(portSelected ? theme.accent : theme.border);
+        rect(pbx, rotConfigY - 11, portBtnW, portBtnH, 4);
+        
+        fill(portSelected ? theme.primary : theme.text);
+        textAlign(CENTER, CENTER);
+        textSize(9);
+        text(availablePorts[i], pbx + portBtnW/2, rotConfigY);
+      }
+    }
+  } else {
+    // WiFi Mode
+    fill(theme.text);
+    textFont(fontRegular);
+    textSize(10);
+    textAlign(LEFT, CENTER);
+    text("IP: " + rotWifiIP + ":" + rotWifiPort, px + 30, rotConfigY);
+  }
+  
+  // Connect/Disconnect Button
+  float rotBtnY = rotConfigY + 30;
+  color rotConnColor = rotConnected ? theme.error : theme.success;
+  String rotConnText = rotConnected ? "DISCONNETTI" : "CONNETTI";
+  boolean rotConnHover = mouseX > px + 30 && mouseX < px + 150 && mouseY > rotBtnY && mouseY < rotBtnY + 32;
+  
+  fill(rotConnHover ? lerpColor(rotConnColor, theme.text, 0.2) : rotConnColor);
+  stroke(rotConnColor);
+  rect(px + 30, rotBtnY, 120, 32, 6);
   
   fill(theme.primary);
-  text("SCAN", px + 255, btnY + 19);
+  textFont(fontBold);
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text(rotConnText, px + 90, rotBtnY + 16);
+  
+  // Status LED
+  ledX = px + 160;
+  fill(rotConnected ? theme.success : theme.error);
+  noStroke();
+  ellipse(ledX, rotBtnY + 16, 10, 10);
   
   // Auto-connect checkbox
-  float autoY = btnY + 55;
+  float autoY = rotBtnY + 45;
   float checkX = px + 30;
   float checkSize = 18;
   
-  fill(autoConnect ? theme.accent : theme. panel);
-  stroke(autoConnect ?  theme.accent : theme.border);
+  fill(autoConnect ? theme.accent : theme.panel);
+  stroke(autoConnect ? theme.accent : theme.border);
   strokeWeight(1);
   rect(checkX, autoY, checkSize, checkSize, 4);
   
@@ -991,12 +1111,18 @@ void drawConnectionSettings(float px, float py) {
   textAlign(LEFT, CENTER);
   text("Connessione automatica all'avvio", checkX + checkSize + 8, autoY + checkSize/2);
   
-  float statusY = autoY + 35;
-  fill(theme.textDim);
+  // Scan Ports Button
+  float scanBtnY = autoY + 30;
+  boolean scanHover = mouseX > px + 30 && mouseX < px + 130 && mouseY > scanBtnY && mouseY < scanBtnY + 28;
+  fill(scanHover ? lerpColor(theme.warning, theme.text, 0.2) : theme.warning);
+  stroke(theme.warning);
+  rect(px + 30, scanBtnY, 100, 28, 6);
+  
+  fill(theme.primary);
+  textFont(fontBold);
   textSize(10);
-  textAlign(LEFT, TOP);
-  text("Status: " + (arduinoConnected ? "Connesso a " + comPort : "Non connesso"), px + 30, statusY);
-  text("Arduino Leonardo richiede 3 secondi dopo la connessione", px + 30, statusY + 15);
+  textAlign(CENTER, CENTER);
+  text("SCAN PORTE", px + 80, scanBtnY + 14);
 }
 
 void drawSystemSettings(float px, float py) {
@@ -1243,56 +1369,11 @@ void drawNavigationBar() {
   }
 }
 
-void drawLeonardoWaitOverlay() {
-  fill(0, 0, 0, 200);
-  rect(0, 0, width, height);
-  
-  float bw = 320, bh = 140;
-  float bx = (width - bw) / 2, by = (height - bh) / 2;
-  
-  fill(theme.panel);
-  stroke(theme.accent);
-  strokeWeight(2);
-  rect(bx, by, bw, bh, 15);
-  
-  fill(theme.accent);
-  textFont(fontLarge);
-  textSize(14);
-  textAlign(CENTER, CENTER);
-  text("Connessione Arduino Leonardo", width/2, by + 30);
-  
-  long elapsed = millis() - leonardoWaitStart;
-  float progress = constrain((float)elapsed / LEONARDO_WAIT_TIME, 0, 1);
-  
-  float pbW = 250, pbH = 20;
-  float pbX = (width - pbW) / 2, pbY = by + 60;
-  
-  fill(theme.secondary);
-  noStroke();
-  rect(pbX, pbY, pbW, pbH, 5);
-  
-  fill(theme.accent);
-  rect(pbX, pbY, pbW * progress, pbH, 5);
-  
-  fill(theme. text);
-  textFont(fontBold);
-  textSize(11);
-  text(int(progress * 100) + "%", width/2, pbY + pbH/2);
-  
-  fill(theme.textDim);
-  textFont(fontRegular);
-  textSize(10);
-  text("Attendere reset Leonardo...", width/2, by + 105);
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  EVENT HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════
 
 void mousePressed() {
-  if (showingSplash) { showingSplash = false; return; }
-  if (waitingForLeonardo) return;
-  
   if (currentScreen == 0) {
     checkAntennaClick();
     checkRotorPowerClick();
@@ -1308,8 +1389,6 @@ void mousePressed() {
 }
 
 void mouseReleased() {
-  if (showingSplash || waitingForLeonardo) return;
-  
   if (cwButtonPressed || ccwButtonPressed) {
     deactivateRotorRelays();
   }
@@ -1340,7 +1419,7 @@ void toggleRotorPower() {
   }
   
   addDebugLog("Rotor Power: " + (rotorPowerOn ? "ON" : "OFF"));
-  sendSerialCommand("ROTOR_PWR:" + (rotorPowerOn ?  "1" : "0"));
+  sendRotorCommand("ROTOR_PWR:" + (rotorPowerOn ?  "1" : "0"));
   addNotification("Rotor " + (rotorPowerOn ?  "ON" : "OFF"), rotorPowerOn ? SUCCESS : WARNING);
 }
 
@@ -1353,14 +1432,14 @@ void deactivateRotorRelays() {
     cwButtonPressed = false;
     rotorCW = false;
     addDebugLog("CW: Rilasciato → Relè A0 OFF");
-    sendSerialCommand("CW:0");
+    sendRotorCommand("CW:0");
   }
   
   if (ccwButtonPressed) {
     ccwButtonPressed = false;
     rotorCCW = false;
     addDebugLog("CCW: Rilasciato → Relè A1 OFF");
-    sendSerialCommand("CCW:0");
+    sendRotorCommand("CCW:0");
   }
 }
 
@@ -1369,13 +1448,13 @@ void activateCWRelay() {
     if (ccwButtonPressed) {
       ccwButtonPressed = false;
       rotorCCW = false;
-      sendSerialCommand("CCW:0");
+      sendRotorCommand("CCW:0");
     }
     
     cwButtonPressed = true;
     rotorCW = true;
     addDebugLog("CW: Premuto → Relè A0 ON");
-    sendSerialCommand("CW:1");
+    sendRotorCommand("CW:1");
   }
 }
 
@@ -1384,10 +1463,15 @@ void activateCCWRelay() {
     if (cwButtonPressed) {
       cwButtonPressed = false;
       rotorCW = false;
-      sendSerialCommand("CW:0");
+      sendRotorCommand("CW:0");
     }
     
     ccwButtonPressed = true;
+    rotorCCW = true;
+    addDebugLog("CCW: Premuto → Relè A1 ON");
+    sendRotorCommand("CCW:1");
+  }
+}
     rotorCCW = true;
     addDebugLog("CCW: Premuto → Relè A1 ON");
     sendSerialCommand("CCW:1");
@@ -1442,9 +1526,9 @@ void emergencyHalt() {
   rotorCCW = false;
   
   addDebugLog("! !! EMERGENCY HALT !!!");
-  sendSerialCommand("CW:0");
-  sendSerialCommand("CCW:0");
-  sendSerialCommand("HALT:1");
+  sendRotorCommand("CW:0");
+  sendRotorCommand("CCW:0");
+  sendRotorCommand("HALT:1");
   addNotification("EMERGENCY HALT!", ERROR);
 }
 
@@ -1485,7 +1569,7 @@ void selectAntenna(int idx) {
     addDebugLog("Antenna " + antennaNames[idx] + " ON");
   }
   
-  sendSerialCommand("ANT:" + idx + ":" + antennaPins[idx]);
+  sendAntennaCommand("ANT:" + idx + ":" + antennaPins[idx]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1552,42 +1636,103 @@ void checkAntennaSettingsClick(float px, float py) {
 }
 
 void checkConnectionSettingsClick(float px, float py) {
-  if (availablePorts != null) {
-    float btnW = 100, btnH = 30, gap = 10;
-    
-    for (int i = 0; i < min(availablePorts.length, 6); i++) {
-      float bx = px + 30 + (i % 3) * (btnW + gap);
-      float by = py + 30 + (i / 3) * (btnH + gap);
-      
-      if (mouseX > bx && mouseX < bx + btnW && mouseY > by && mouseY < by + btnH) {
-        comPort = availablePorts[i];
-        tempComPort = comPort;
-        addDebugLog("Porta: " + comPort);
+  float toggleW = 60, toggleH = 25, toggleGap = 10;
+  
+  // === ANTENNA SECTION ===
+  float toggleY = py + 25;
+  
+  // ANT USB/WiFi toggle
+  if (mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > toggleY && mouseY < toggleY + toggleH) {
+    antConnMode = 0;
+    addDebugLog("ESP32 Antenna: modo USB");
+    return;
+  }
+  
+  if (mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > toggleY && mouseY < toggleY + toggleH) {
+    antConnMode = 1;
+    addDebugLog("ESP32 Antenna: modo WiFi");
+    return;
+  }
+  
+  // ANT Port selection (USB mode)
+  if (antConnMode == 0 && availablePorts != null) {
+    float configY = toggleY + 35;
+    float portBtnW = 70, portBtnH = 22;
+    for (int i = 0; i < min(availablePorts.length, 4); i++) {
+      float pbx = px + 120 + i * (portBtnW + 5);
+      if (mouseX > pbx && mouseX < pbx + portBtnW && mouseY > configY - 11 && mouseY < configY + 11) {
+        antComPort = availablePorts[i];
+        addDebugLog("ESP32 Antenna porta: " + antComPort);
         return;
       }
     }
   }
   
-  float btnY = py + 110;
-  
-  if (mouseX > px + 30 && mouseX < px + 180 && mouseY > btnY && mouseY < btnY + 38) {
-    if (arduinoConnected) disconnectArduino();
-    else connectArduino();
+  // ANT Connect/Disconnect
+  float configY = toggleY + 35;
+  float antBtnY = configY + 30;
+  if (mouseX > px + 30 && mouseX < px + 150 && mouseY > antBtnY && mouseY < antBtnY + 32) {
+    if (antConnected) disconnectAntESP32();
+    else connectAntESP32();
     return;
   }
   
-  if (mouseX > px + 200 && mouseX < px + 310 && mouseY > btnY && mouseY < btnY + 38) {
-    scanSerialPorts();
-    addNotification("Porte scansionate", INFO);
+  // === ROTOR SECTION ===
+  float rotY = antBtnY + 50;
+  float rotToggleY = rotY + 25;
+  
+  // ROT USB/WiFi toggle
+  if (mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > rotToggleY && mouseY < rotToggleY + toggleH) {
+    rotConnMode = 0;
+    addDebugLog("ESP32 Rotore: modo USB");
+    return;
+  }
+  
+  if (mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > rotToggleY && mouseY < rotToggleY + toggleH) {
+    rotConnMode = 1;
+    addDebugLog("ESP32 Rotore: modo WiFi");
+    return;
+  }
+  
+  // ROT Port selection (USB mode)
+  if (rotConnMode == 0 && availablePorts != null) {
+    float rotConfigY = rotToggleY + 35;
+    float portBtnW = 70, portBtnH = 22;
+    for (int i = 0; i < min(availablePorts.length, 4); i++) {
+      float pbx = px + 120 + i * (portBtnW + 5);
+      if (mouseX > pbx && mouseX < pbx + portBtnW && mouseY > rotConfigY - 11 && mouseY < rotConfigY + 11) {
+        rotComPort = availablePorts[i];
+        addDebugLog("ESP32 Rotore porta: " + rotComPort);
+        return;
+      }
+    }
+  }
+  
+  // ROT Connect/Disconnect
+  float rotConfigY = rotToggleY + 35;
+  float rotBtnY = rotConfigY + 30;
+  if (mouseX > px + 30 && mouseX < px + 150 && mouseY > rotBtnY && mouseY < rotBtnY + 32) {
+    if (rotConnected) disconnectRotESP32();
+    else connectRotESP32();
     return;
   }
   
   // Auto-connect
-  float autoY = btnY + 55, checkX = px + 30, checkSize = 18;
-  if (mouseX > checkX && mouseX < checkX + checkSize + 150 && mouseY > autoY && mouseY < autoY + checkSize) {
+  float autoY = rotBtnY + 45;
+  float checkX = px + 30;
+  float checkSize = 18;
+  if (mouseX > checkX && mouseX < checkX + checkSize + 200 && mouseY > autoY && mouseY < autoY + checkSize) {
     autoConnect = !autoConnect;
     addDebugLog("Auto-connect: " + (autoConnect ? "ON" : "OFF"));
     addNotification("Auto-connect " + (autoConnect ? "attivato" : "disattivato"), autoConnect ? SUCCESS : INFO);
+    return;
+  }
+  
+  // Scan Ports
+  float scanBtnY = autoY + 30;
+  if (mouseX > px + 30 && mouseX < px + 130 && mouseY > scanBtnY && mouseY < scanBtnY + 28) {
+    scanSerialPorts();
+    addNotification("Porte scansionate", INFO);
     return;
   }
 }
@@ -1631,7 +1776,7 @@ void checkTopBarClick() {
       for (int i = 0; i < 6; i++) antennaStates[i] = false;
     }
     
-    sendSerialCommand("PWR:" + (systemOn ? "1" : "0"));
+    sendAntennaCommand("PWR:" + (systemOn ? "1" : "0"));
   }
 }
 
@@ -1660,9 +1805,6 @@ void checkNavigationClick() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void keyPressed() {
-  if (showingSplash) { showingSplash = false; return; }
-  if (waitingForLeonardo) return;
-  
   if (editingField >= 0) {
     if (key == ENTER || key == RETURN) {
       editingField = -1;
@@ -1687,7 +1829,6 @@ void keyPressed() {
   }
   
   if (key == 'h' || key == 'H') { emergencyHalt(); }
-  if (key == 'c' || key == 'C') { if (arduinoConnected) disconnectArduino(); else connectArduino(); }
   if (key == 'r' || key == 'R') { scanSerialPorts(); addNotification("Porte scansionate", INFO); }
   if (key == 'd' || key == 'D') { debugMode = !debugMode; }
   if (key == 'p' || key == 'P') { if (systemOn) toggleRotorPower(); }
@@ -1711,7 +1852,6 @@ void saveSettings() {
   arrayCopy(tempAntennaNames, antennaNames);
   arrayCopy(tempAntennaPins, antennaPins);
   arrayCopy(tempAntennaDirective, antennaDirective);
-  comPort = tempComPort;
   settings.saveSettings();
   addNotification("Impostazioni salvate", SUCCESS);
   targetScreen = 0; transitioning = true; screenTransition = 0;
@@ -1721,7 +1861,6 @@ void cancelSettings() {
   arrayCopy(antennaNames, tempAntennaNames);
   arrayCopy(antennaPins, tempAntennaPins);
   arrayCopy(antennaDirective, tempAntennaDirective);
-  tempComPort = comPort;
   editingField = -1;
   targetScreen = 0; transitioning = true; screenTransition = 0;
 }
@@ -1732,122 +1871,271 @@ void resetToDefaults() {
     tempAntennaPins[i] = i + 4;
     tempAntennaDirective[i] = defaultAntennaDirective[i];
   }
-  tempComPort = "COM4";
   addDebugLog("Reset ai valori predefiniti");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  SERIAL COMMUNICATION
+//  ESP32 COMMUNICATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-void connectArduino() {
-  if (arduinoConnected) return;
-  
-  addDebugLog("Connessione a " + comPort + "...");
+// ESP32 Antenna Switch Functions
+void connectAntESP32() {
+  if (antConnected) return;
   
   try {
-    if (arduino != null) { try { arduino.stop(); } catch (Exception e) {} arduino = null; }
-    
-    boolean found = false;
-    for (String p : Serial.list()) { if (p.equals(comPort)) { found = true; break; } }
-    
-    if (! found) {
-      addNotification("Porta " + comPort + " non trovata", ERROR);
-      return;
+    if (antConnMode == 0) {
+      // USB Mode
+      addDebugLog("Connessione ESP32 Antenna via USB: " + antComPort + "...");
+      
+      boolean found = false;
+      for (String p : Serial.list()) { if (p.equals(antComPort)) { found = true; break; } }
+      
+      if (!found) {
+        addNotification("Porta " + antComPort + " non trovata", ERROR);
+        return;
+      }
+      
+      if (antSerial != null) { try { antSerial.stop(); } catch (Exception e) {} }
+      antSerial = new Serial(this, antComPort, antBaudRate);
+      antSerial.bufferUntil('\n');
+      antConnected = true;
+      addNotification("ESP32 Antenna connesso (USB)", SUCCESS);
+      addDebugLog("ESP32 Antenna connesso via USB!");
+      
+    } else {
+      // WiFi Mode
+      addDebugLog("Connessione ESP32 Antenna via WiFi: " + antWifiIP + ":" + antWifiPort + "...");
+      
+      if (antClient != null) { try { antClient.stop(); } catch (Exception e) {} }
+      antClient = new Client(this, antWifiIP, antWifiPort);
+      
+      if (antClient.active()) {
+        antConnected = true;
+        addNotification("ESP32 Antenna connesso (WiFi)", SUCCESS);
+        addDebugLog("ESP32 Antenna connesso via WiFi!");
+      } else {
+        addNotification("Impossibile connettere a " + antWifiIP, ERROR);
+        antClient = null;
+      }
     }
     
-    arduino = new Serial(this, comPort, baudRate);
-    waitingForLeonardo = true;
-    leonardoWaitStart = millis();
-    addDebugLog("Attesa reset Leonardo.. .");
+    if (antConnected) {
+      delay(100);
+      sendAntennaCommand("PWR:" + (systemOn ? "1" : "0"));
+    }
     
   } catch (Exception e) {
-    addNotification("Errore connessione", ERROR);
+    addNotification("Errore connessione ESP32 Antenna", ERROR);
     addDebugLog("ERRORE: " + e.getMessage());
-    arduinoConnected = false;
-    arduino = null;
+    antConnected = false;
+    antSerial = null;
+    antClient = null;
   }
 }
 
-void finishLeonardoConnection() {
-  try {
-    if (arduino != null) {
-      arduino.bufferUntil('\n');
-      arduinoConnected = true;
-      addNotification("Connesso a " + comPort, SUCCESS);
-      addDebugLog("Leonardo connesso!");
-      delay(100);
-      sendSerialCommand("PWR:" + (systemOn ? "1" : "0"));
-    }
-  } catch (Exception e) {
-    addNotification("Errore connessione", ERROR);
-    addDebugLog("ERRORE: " + e. getMessage());
-    arduinoConnected = false;
-    arduino = null;
-  }
-}
-
-void disconnectArduino() {
-  addDebugLog("Disconnessione.. .");
+void disconnectAntESP32() {
+  addDebugLog("Disconnessione ESP32 Antenna...");
   
   try {
-    if (arduinoConnected && arduino != null) {
-      sendSerialCommand("CW:0");
-      sendSerialCommand("CCW:0");
-      sendSerialCommand("ROTOR_PWR:0");
-      sendSerialCommand("PWR:0");
+    if (antConnected) {
+      sendAntennaCommand("PWR:0");
       delay(100);
     }
     
-    if (arduino != null) { arduino.stop(); arduino = null; }
+    if (antSerial != null) { antSerial.stop(); antSerial = null; }
+    if (antClient != null) { antClient.stop(); antClient = null; }
     
-    arduinoConnected = false;
-    rotorCW = false; rotorCCW = false;
-    cwButtonPressed = false; ccwButtonPressed = false;
+    antConnected = false;
+    selectedAntenna = -1;
+    for (int i = 0; i < 6; i++) antennaStates[i] = false;
+    
+    addNotification("ESP32 Antenna disconnesso", WARNING);
+    addDebugLog("ESP32 Antenna disconnesso");
+    
+  } catch (Exception e) {
+    addDebugLog("ERRORE: " + e.getMessage());
+    antSerial = null;
+    antClient = null;
+    antConnected = false;
+  }
+}
+
+void sendAntennaCommand(String cmd) {
+  if (!antConnected) return;
+  
+  try {
+    if (antConnMode == 0 && antSerial != null) {
+      antSerial.write(cmd + "\n");
+      addDebugLog("TX ANT: " + cmd);
+    } else if (antConnMode == 1 && antClient != null) {
+      antClient.write(cmd + "\n");
+      addDebugLog("TX ANT: " + cmd);
+    }
+  } catch (Exception e) {
+    addDebugLog("ERRORE TX ANT: " + e.getMessage());
+    antConnected = false;
+  }
+}
+
+// ESP32 Rotor Functions
+void connectRotESP32() {
+  if (rotConnected) return;
+  
+  try {
+    if (rotConnMode == 0) {
+      // USB Mode
+      addDebugLog("Connessione ESP32 Rotore via USB: " + rotComPort + "...");
+      
+      boolean found = false;
+      for (String p : Serial.list()) { if (p.equals(rotComPort)) { found = true; break; } }
+      
+      if (!found) {
+        addNotification("Porta " + rotComPort + " non trovata", ERROR);
+        return;
+      }
+      
+      if (rotSerial != null) { try { rotSerial.stop(); } catch (Exception e) {} }
+      rotSerial = new Serial(this, rotComPort, rotBaudRate);
+      rotSerial.bufferUntil('\n');
+      rotConnected = true;
+      addNotification("ESP32 Rotore connesso (USB)", SUCCESS);
+      addDebugLog("ESP32 Rotore connesso via USB!");
+      
+    } else {
+      // WiFi Mode
+      addDebugLog("Connessione ESP32 Rotore via WiFi: " + rotWifiIP + ":" + rotWifiPort + "...");
+      
+      if (rotClient != null) { try { rotClient.stop(); } catch (Exception e) {} }
+      rotClient = new Client(this, rotWifiIP, rotWifiPort);
+      
+      if (rotClient.active()) {
+        rotConnected = true;
+        addNotification("ESP32 Rotore connesso (WiFi)", SUCCESS);
+        addDebugLog("ESP32 Rotore connesso via WiFi!");
+      } else {
+        addNotification("Impossibile connettere a " + rotWifiIP, ERROR);
+        rotClient = null;
+      }
+    }
+    
+    if (rotConnected) {
+      delay(100);
+      sendRotorCommand("ROTOR_PWR:" + (rotorPowerOn ? "1" : "0"));
+    }
+    
+  } catch (Exception e) {
+    addNotification("Errore connessione ESP32 Rotore", ERROR);
+    addDebugLog("ERRORE: " + e.getMessage());
+    rotConnected = false;
+    rotSerial = null;
+    rotClient = null;
+  }
+}
+
+void disconnectRotESP32() {
+  addDebugLog("Disconnessione ESP32 Rotore...");
+  
+  try {
+    if (rotConnected) {
+      sendRotorCommand("CW:0");
+      sendRotorCommand("CCW:0");
+      sendRotorCommand("ROTOR_PWR:0");
+      delay(100);
+    }
+    
+    if (rotSerial != null) { rotSerial.stop(); rotSerial = null; }
+    if (rotClient != null) { rotClient.stop(); rotClient = null; }
+    
+    rotConnected = false;
+    rotorCW = false;
+    rotorCCW = false;
+    cwButtonPressed = false;
+    ccwButtonPressed = false;
     rotorPowerOn = false;
     
-    addNotification("Disconnesso", WARNING);
-    addDebugLog("Arduino disconnesso");
+    addNotification("ESP32 Rotore disconnesso", WARNING);
+    addDebugLog("ESP32 Rotore disconnesso");
     
   } catch (Exception e) {
     addDebugLog("ERRORE: " + e.getMessage());
-    arduino = null;
-    arduinoConnected = false;
+    rotSerial = null;
+    rotClient = null;
+    rotConnected = false;
+  }
+}
+
+void sendRotorCommand(String cmd) {
+  if (!rotConnected) return;
+  
+  try {
+    if (rotConnMode == 0 && rotSerial != null) {
+      rotSerial.write(cmd + "\n");
+      addDebugLog("TX ROT: " + cmd);
+    } else if (rotConnMode == 1 && rotClient != null) {
+      rotClient.write(cmd + "\n");
+      addDebugLog("TX ROT: " + cmd);
+    }
+  } catch (Exception e) {
+    addDebugLog("ERRORE TX ROT: " + e.getMessage());
+    rotConnected = false;
+  }
+}
+
+// Process data from ESP32s
+void processAntennaData(String data) {
+  if (data.length() == 0) return;
+  addDebugLog("RX ANT: " + data);
+  
+  if (data.startsWith("ANT:")) {
+    try {
+      int idx = Integer.parseInt(data.substring(4));
+      if (idx >= -1 && idx < 6) {
+        selectedAntenna = idx;
+        for (int i = 0; i < 6; i++) antennaStates[i] = (i == idx);
+      }
+    } catch (Exception e) {}
+  }
+  else if (data.startsWith("STATUS:")) {
+    // Handle status updates from antenna ESP32
+  }
+}
+
+void processRotorData(String data) {
+  if (data.length() == 0) return;
+  addDebugLog("RX ROT: " + data);
+  
+  if (data.startsWith("AZI:")) {
+    try { currentAzimuth = Float.parseFloat(data.substring(4)); } catch (Exception e) {}
+  }
+  else if (data.startsWith("ROTOR:")) {
+    String status = data.substring(6);
+    if (status.equals("CW")) { rotorCW = true; rotorCCW = false; }
+    else if (status.equals("CCW")) { rotorCW = false; rotorCCW = true; }
+    else { rotorCW = false; rotorCCW = false; cwButtonPressed = false; ccwButtonPressed = false; }
+  }
+  else if (data.startsWith("ROTOR_PWR:")) {
+    rotorPowerOn = data.substring(10).equals("ON");
+  }
+  else if (data.startsWith("STATUS:")) {
+    // Handle status updates from rotor ESP32
   }
 }
 
 void serialEvent(Serial p) {
-  if (p != arduino || arduino == null) return;
-  
   try {
     String data = p.readStringUntil('\n');
     if (data == null || data.length() == 0) return;
-    
     data = data.trim();
-    if (data.length() == 0) return;
     
-    addDebugLog("RX: " + data);
-    
-    if (data.startsWith("AZI:")) {
-      try { currentAzimuth = Float.parseFloat(data.substring(4)); } catch (Exception e) {}
+    if (p == antSerial) {
+      processAntennaData(data);
+    } else if (p == rotSerial) {
+      processRotorData(data);
     }
-    else if (data.startsWith("ANT:")) {
-      try {
-        int idx = Integer.parseInt(data.substring(4));
-        if (idx >= -1 && idx < 6) {
-          selectedAntenna = idx;
-          for (int i = 0; i < 6; i++) antennaStates[i] = (i == idx);
-        }
-      } catch (Exception e) {}
-    }
-    else if (data.startsWith("ROTOR:")) {
-      String status = data.substring(6);
-      if (status.equals("CW")) { rotorCW = true; rotorCCW = false; }
-      else if (status.equals("CCW")) { rotorCW = false; rotorCCW = true; }
-      else { rotorCW = false; rotorCCW = false; cwButtonPressed = false; ccwButtonPressed = false; }
-    }
-    else if (data.startsWith("ROTOR_PWR:")) {
-      rotorPowerOn = data.substring(10).equals("ON");
+  } catch (Exception e) {
+    addDebugLog("ERRORE serialEvent: " + e.getMessage());
+  }
+}
     }
     else if (data.startsWith("STATUS:") && (data.contains("stopped") || data.contains("halt") || data.contains("timeout"))) {
       rotorCW = false; rotorCCW = false;
@@ -1864,18 +2152,13 @@ void serialEvent(Serial p) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void exit() {
-  addDebugLog("Chiusura.. .");
+  addDebugLog("Chiusura...");
   
-  if (arduinoConnected && arduino != null) {
-    try {
-      arduino.write("CW:0\n");
-      arduino.write("CCW:0\n");
-      arduino.write("ROTOR_PWR:0\n");
-      arduino.write("PWR:0\n");
-      delay(150);
-      arduino.stop();
-    } catch (Exception e) {}
-  }
+  try {
+    disconnectAntESP32();
+    disconnectRotESP32();
+    delay(150);
+  } catch (Exception e) {}
   
   super.exit();
 }
