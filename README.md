@@ -1,6 +1,7 @@
 
 
 import processing.serial.*;
+import processing.net.*;
 import java.util.*;
 import java.text. SimpleDateFormat;
 
@@ -8,77 +9,8 @@ import java.text. SimpleDateFormat;
 //  CONFIGURAZIONE GLOBALE
 // ═══════════════════════════════════════════════════════════════════════════
 
-final String APP_NAME = "9A8DV Remote Control";
+final String APP_NAME = "Remote Control";
 final String APP_VERSION = "2.1";
-final String CALLSIGN = "9A8DV";
-final String CALLSIGN_NAME = "HAM RADIO STATION";
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  ANIMAZIONE STARTUP
-// ═══════════════════════════════════════════════════════════════════════════
-
-boolean showingSplash = true;
-float splashProgress = 0;
-long splashStartTime;
-final int SPLASH_DURATION = 5000;
-
-ArrayList<Particle> particles = new ArrayList<Particle>();
-ArrayList<Star> stars = new ArrayList<Star>();
-
-class Particle {
-  float x, y, vx, vy, size, alpha, life;
-  color col;
-  
-  Particle(float x, float y) {
-    this.x = x;
-    this.y = y;
-    float angle = random(TWO_PI);
-    float speed = random(1, 4);
-    vx = cos(angle) * speed;
-    vy = sin(angle) * speed;
-    size = random(2, 6);
-    alpha = 255;
-    life = random(60, 120);
-    col = color(0, 255, 136);
-  }
-  
-  void update() {
-    x += vx; y += vy;
-    vx *= 0.98; vy *= 0.98;
-    life--;
-    alpha = map(life, 0, 60, 0, 255);
-  }
-  
-  void draw() {
-    noStroke();
-    fill(red(col), green(col), blue(col), alpha);
-    ellipse(x, y, size, size);
-    fill(red(col), green(col), blue(col), alpha * 0.3);
-    ellipse(x, y, size * 2, size * 2);
-  }
-  
-  boolean isDead() { return life <= 0; }
-}
-
-class Star {
-  float x, y, size, twinkle, speed;
-  
-  Star() {
-    x = random(800); y = random(600);
-    size = random(1, 3);
-    twinkle = random(TWO_PI);
-    speed = random(0.02, 0.08);
-  }
-  
-  void update() { twinkle += speed; }
-  
-  void draw() {
-    float alpha = 100 + 155 * sin(twinkle);
-    fill(255, 255, 255, alpha);
-    noStroke();
-    ellipse(x, y, size, size);
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  TEMA COLORI
@@ -214,8 +146,19 @@ class SettingsManager {
       antennasArray.setJSONObject(i, antenna);
     }
     config.setJSONArray("antennas", antennasArray);
-    config.setString("comPort", "COM4");
-    config.setInt("baudRate", 9600);
+    
+    config.setInt("antConnMode", 0);
+    config.setString("antComPort", "COM4");
+    config.setInt("antBaudRate", 9600);
+    config.setString("antWifiIP", "192.168.1.100");
+    config.setInt("antWifiPort", 8080);
+    
+    config.setInt("rotConnMode", 0);
+    config.setString("rotComPort", "COM5");
+    config.setInt("rotBaudRate", 9600);
+    config.setString("rotWifiIP", "192.168.1.101");
+    config.setInt("rotWifiPort", 8081);
+    
     config.setBoolean("autoConnect", false);
     config.setBoolean("debugMode", true);
     saveSettings();
@@ -230,8 +173,19 @@ class SettingsManager {
         antennaPins[i] = antenna.getInt("pin");
         antennaDirective[i] = antenna.getBoolean("directive");
       }
-      comPort = config.getString("comPort");
-      baudRate = config. getInt("baudRate");
+      
+      antConnMode = config.getInt("antConnMode", 0);
+      antComPort = config.getString("antComPort", "COM4");
+      antBaudRate = config.getInt("antBaudRate", 9600);
+      antWifiIP = config.getString("antWifiIP", "192.168.1.100");
+      antWifiPort = config.getInt("antWifiPort", 8080);
+      
+      rotConnMode = config.getInt("rotConnMode", 0);
+      rotComPort = config.getString("rotComPort", "COM5");
+      rotBaudRate = config.getInt("rotBaudRate", 9600);
+      rotWifiIP = config.getString("rotWifiIP", "192.168.1.101");
+      rotWifiPort = config.getInt("rotWifiPort", 8081);
+      
       autoConnect = config.getBoolean("autoConnect");
       debugMode = config.getBoolean("debugMode");
     } catch (Exception e) { }
@@ -248,12 +202,24 @@ class SettingsManager {
         antennasArray.setJSONObject(i, antenna);
       }
       config.setJSONArray("antennas", antennasArray);
-      config.setString("comPort", comPort);
-      config.setInt("baudRate", baudRate);
+      
+      config.setInt("antConnMode", antConnMode);
+      config.setString("antComPort", antComPort);
+      config.setInt("antBaudRate", antBaudRate);
+      config.setString("antWifiIP", antWifiIP);
+      config.setInt("antWifiPort", antWifiPort);
+      
+      config.setInt("rotConnMode", rotConnMode);
+      config.setString("rotComPort", rotComPort);
+      config.setInt("rotBaudRate", rotBaudRate);
+      config.setString("rotWifiIP", rotWifiIP);
+      config.setInt("rotWifiPort", rotWifiPort);
+      
       config.setBoolean("autoConnect", autoConnect);
       config.setBoolean("debugMode", debugMode);
       saveJSONObject(config, settingsFile);
     } catch (Exception e) { }
+  }
   }
 }
 
@@ -261,16 +227,28 @@ class SettingsManager {
 //  VARIABILI GLOBALI
 // ═══════════════════════════════════════════════════════════════════════════
 
-Serial arduino;
-boolean arduinoConnected = false;
-String comPort = "COM4";
-int baudRate = 9600;
+// ESP32 Antenna Switch
+int antConnMode = 0; // 0=USB, 1=WiFi
+Serial antSerial;
+Client antClient;
+boolean antConnected = false;
+String antComPort = "COM4";
+int antBaudRate = 9600;
+String antWifiIP = "192.168.1.100";
+int antWifiPort = 8080;
+
+// ESP32 Rotore
+int rotConnMode = 0; // 0=USB, 1=WiFi
+Serial rotSerial;
+Client rotClient;
+boolean rotConnected = false;
+String rotComPort = "COM5";
+int rotBaudRate = 9600;
+String rotWifiIP = "192.168.1.101";
+int rotWifiPort = 8081;
+
 boolean autoConnect = false;
 boolean debugMode = true;
-
-boolean waitingForLeonardo = false;
-long leonardoWaitStart = 0;
-final long LEONARDO_WAIT_TIME = 3000;
 
 SettingsManager settings;
 
@@ -302,7 +280,7 @@ float mapRadius = 110;
 boolean[] buttonHover = new boolean[30];
 float[] buttonAnim = new float[30];
 
-PFont fontRegular, fontBold, fontLarge, fontMono, fontCallsign;
+PFont fontRegular, fontBold, fontLarge, fontMono;
 
 ArrayList<String> debugLog = new ArrayList<String>();
 
@@ -330,7 +308,6 @@ void setup() {
   fontBold = createFont("Segoe UI Bold", 12);
   fontLarge = createFont("Segoe UI Bold", 20);
   fontMono = createFont("Consolas", 10);
-  fontCallsign = createFont("Arial Black", 72);
   
   for (int i = 0; i < 6; i++) {
     antennaNames[i] = defaultAntennaNames[i];
@@ -342,14 +319,9 @@ void setup() {
   arrayCopy(antennaNames, tempAntennaNames);
   arrayCopy(antennaPins, tempAntennaPins);
   arrayCopy(antennaDirective, tempAntennaDirective);
-  tempComPort = comPort;
-  
-  for (int i = 0; i < 100; i++) stars.add(new Star());
   
   settings = new SettingsManager();
   scanSerialPorts();
-  
-  splashStartTime = millis();
   
   addDebugLog("═══════════════════════════════════════");
   addDebugLog("  " + APP_NAME + " v" + APP_VERSION);
@@ -357,15 +329,9 @@ void setup() {
   addDebugLog("Sistema inizializzato");
   
   if (autoConnect && availablePorts != null && availablePorts.length > 0) {
-    addDebugLog("Auto-connect attivo.. .");
-    thread("autoConnectDelayed");
-  }
-}
-
-void autoConnectDelayed() {
-  delay(SPLASH_DURATION + 1000);
-  if (! arduinoConnected && autoConnect) {
-    connectArduino();
+    addDebugLog("Auto-connect attivo...");
+    connectAntESP32();
+    connectRotESP32();
   }
 }
 
@@ -390,17 +356,18 @@ void addDebugLog(String msg) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void draw() {
-  if (showingSplash) {
-    drawSplashScreen();
-    return;
-  }
-  
   drawBackground();
   updateAnimations();
   
-  if (waitingForLeonardo && millis() - leonardoWaitStart >= LEONARDO_WAIT_TIME) {
-    waitingForLeonardo = false;
-    finishLeonardoConnection();
+  // Read WiFi data if connected
+  if (antConnMode == 1 && antClient != null && antClient.available() > 0) {
+    String data = antClient.readStringUntil('\n');
+    if (data != null) processAntennaData(data.trim());
+  }
+  
+  if (rotConnMode == 1 && rotClient != null && rotClient.available() > 0) {
+    String data = rotClient.readStringUntil('\n');
+    if (data != null) processRotorData(data.trim());
   }
   
   if (transitioning) {
@@ -429,8 +396,6 @@ void draw() {
   
   notificationManager.update();
   notificationManager.draw();
-  
-  if (waitingForLeonardo) drawLeonardoWaitOverlay();
 }
 
 void drawBackground() {
@@ -461,124 +426,6 @@ void drawTargetScreen() {
     case 0: drawControlScreen(); break;
     case 1: drawSettingsScreen(); break;
     case 2: drawDebugScreen(); break;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  SPLASH SCREEN
-// ═══════════════════════════════════════════════════════════════════════════
-
-void drawSplashScreen() {
-  long elapsed = millis() - splashStartTime;
-  float progress = (float)elapsed / SPLASH_DURATION;
-  
-  if (progress >= 1.0) { showingSplash = false; return; }
-  
-  background(5, 5, 15);
-  
-  for (Star s : stars) { s.update(); s.draw(); }
-  
-  for (int i = particles.size() - 1; i >= 0; i--) {
-    Particle p = particles. get(i);
-    p. update(); p.draw();
-    if (p.isDead()) particles.remove(i);
-  }
-  
-  float phase1End = 0.15, phase2End = 0.35, phase3End = 0.55, phase4End = 0.75, phase5End = 1.0;
-  
-  pushMatrix();
-  translate(width/2, height/2);
-  
-  if (progress < phase2End) {
-    float circleProgress = min(1, progress / phase1End);
-    float circleSize = 150 * circleProgress;
-    float pulseSize = circleSize + 20 * sin(millis() * 0.005);
-    
-    for (int i = 5; i >= 0; i--) {
-      fill(0, 255, 136, 10 * circleProgress);
-      noStroke();
-      ellipse(0, 0, pulseSize + i * 30, pulseSize + i * 30);
-    }
-    
-    stroke(0, 255, 136, 255 * circleProgress);
-    strokeWeight(3);
-    noFill();
-    ellipse(0, 0, circleSize, circleSize);
-    
-    float rotation = millis() * 0.002;
-    stroke(0, 255, 136, 100 * circleProgress);
-    strokeWeight(2);
-    for (int i = 0; i < 4; i++) {
-      float angle = rotation + i * HALF_PI;
-      line(cos(angle) * 20, sin(angle) * 20, cos(angle) * circleSize * 0.4, sin(angle) * circleSize * 0.4);
-    }
-    
-    if (frameCount % 3 == 0 && circleProgress > 0.5) {
-      float angle = random(TWO_PI);
-      particles.add(new Particle(width/2 + cos(angle) * circleSize/2, height/2 + sin(angle) * circleSize/2));
-    }
-  }
-  
-  if (progress > phase1End && progress < phase5End) {
-    float textProgress = constrain((progress - phase1End) / (phase2End - phase1End), 0, 1);
-    float textAlpha = 255 * textProgress;
-    
-    fill(0, 255, 136, textAlpha * 0.3);
-    textFont(fontCallsign);
-    textSize(80);
-    textAlign(CENTER, CENTER);
-    text(CALLSIGN, 4, -24);
-    
-    fill(0, 255, 136, textAlpha);
-    text(CALLSIGN, 0, -30);
-    
-    float lineWidth = 300 * textProgress;
-    stroke(0, 255, 136, textAlpha);
-    strokeWeight(2);
-    line(-lineWidth/2, 15, lineWidth/2, 15);
-  }
-  
-  if (progress > phase2End && progress < phase5End) {
-    float subProgress = constrain((progress - phase2End) / (phase3End - phase2End), 0, 1);
-    float subAlpha = 255 * subProgress;
-    
-    fill(255, 255, 255, subAlpha);
-    textFont(fontBold);
-    textSize(16);
-    textAlign(CENTER, CENTER);
-    text(CALLSIGN_NAME, 0, 45);
-    
-    fill(150, 150, 150, subAlpha);
-    textSize(12);
-    text("Remote Control System v" + APP_VERSION, 0, 70);
-  }
-  
-  if (progress > phase3End && progress < phase5End) {
-    float barProgress = constrain((progress - phase3End) / (phase4End - phase3End), 0, 1);
-    float barWidth = 250, barHeight = 6, barY = 110;
-    
-    fill(50, 50, 50, 200);
-    noStroke();
-    rect(-barWidth/2, barY, barWidth, barHeight, 3);
-    
-    fill(0, 255, 136);
-    rect(-barWidth/2, barY, barWidth * barProgress, barHeight, 3);
-    
-    fill(150, 150, 150);
-    textFont(fontRegular);
-    textSize(10);
-    textAlign(CENTER, CENTER);
-    String[] loadingTexts = {"Initializing...", "Loading config...", "Preparing UI...", "Ready!"};
-    text(loadingTexts[min((int)(barProgress * loadingTexts.length), loadingTexts.length - 1)], 0, barY + 25);
-  }
-  
-  popMatrix();
-  
-  if (progress > phase4End) {
-    float fadeProgress = (progress - phase4End) / (phase5End - phase4End);
-    fill(5, 5, 15, 255 * fadeProgress);
-    noStroke();
-    rect(0, 0, width, height);
   }
 }
 
@@ -909,9 +756,9 @@ void drawStatusBar() {
   float startX = px + 20;
   float spacing = 115;
   
-  drawStatusItem(startX, iconY, "Arduino", arduinoConnected ? "OK" : "DISC", arduinoConnected ? theme.success : theme.error);
-  drawStatusItem(startX + spacing, iconY, "Sistema", systemOn ? "ON" : "OFF", systemOn ? theme. success : theme.warning);
-  drawStatusItem(startX + spacing * 2, iconY, "Rotor", rotorPowerOn ?  "ON" : "OFF", rotorPowerOn ? theme.rotorPowerOn : theme.disabled);
+  drawStatusItem(startX, iconY, "ANT", antConnected ? "OK" : "DISC", antConnected ? theme.success : theme.error);
+  drawStatusItem(startX + spacing, iconY, "ROT", rotConnected ? "OK" : "DISC", rotConnected ? theme.success : theme.error);
+  drawStatusItem(startX + spacing * 2, iconY, "Sistema", systemOn ? "ON" : "OFF", systemOn ? theme. success : theme.warning);
   
   String rotorSt = "STOP";
   color rotorCol = theme.disabled;
@@ -1309,10 +1156,11 @@ void drawTopBar() {
   textSize(9);
   text("v" + APP_VERSION, 195, 22);
   
-  float ledX = width - 180;
+  float ledX = width - 250;
   float pulse = 0.5 + 0.5 * sin(millis() * 0.005);
   
-  fill(arduinoConnected ? lerpColor(theme.success, color(255), pulse * 0.3) : theme. error);
+  // ANT LED
+  fill(antConnected ? lerpColor(theme.success, color(255), pulse * 0.3) : theme. error);
   noStroke();
   ellipse(ledX, 22, 10, 10);
   
@@ -1320,7 +1168,16 @@ void drawTopBar() {
   textFont(fontRegular);
   textSize(10);
   textAlign(LEFT, CENTER);
-  text(arduinoConnected ? "ONLINE" : "OFFLINE", ledX + 12, 22);
+  text("ANT", ledX + 12, 22);
+  
+  // ROT LED
+  float ledX2 = ledX + 70;
+  fill(rotConnected ? lerpColor(theme.success, color(255), pulse * 0.3) : theme. error);
+  noStroke();
+  ellipse(ledX2, 22, 10, 10);
+  
+  fill(theme.text);
+  text("ROT", ledX2 + 12, 22);
   
   drawPowerSwitch(width - 75, 12);
 }
