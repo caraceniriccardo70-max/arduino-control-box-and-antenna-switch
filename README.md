@@ -278,6 +278,7 @@ float mapRadius = 110;
 
 boolean[] buttonHover = new boolean[30];
 float[] buttonAnim = new float[30];
+float powerSwitchAnim = 1.0; // Animation value for power switch (0.0 to 1.0)
 
 PFont fontRegular, fontBold, fontLarge, fontMono;
 
@@ -340,6 +341,23 @@ void scanSerialPorts() {
 
 String getTimestamp() {
   return new SimpleDateFormat("HH:mm:ss").format(new Date());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EASING FUNCTIONS (for smoother animations)
+// ═══════════════════════════════════════════════════════════════════════════
+
+float easeOutCubic(float t) {
+  return 1 - pow(1 - t, 3);
+}
+
+float easeInOutCubic(float t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2;
+}
+
+float easeOutElastic(float t) {
+  float c4 = (2 * PI) / 3;
+  return t == 0 ? 0 : t == 1 ? 1 : pow(2, -10 * t) * sin((t * 10 - 0.75) * c4) + 1;
 }
 
 void addDebugLog(String msg) {
@@ -406,9 +424,15 @@ void drawBackground() {
 
 void updateAnimations() {
   for (int i = 0; i < buttonAnim.length; i++) {
-    buttonAnim[i] = lerp(buttonAnim[i], buttonHover[i] ? 1.0 : 0.0, 0.2);
+    // Smoother animation with faster response
+    float speed = buttonHover[i] ? 0.25 : 0.18;
+    buttonAnim[i] = lerp(buttonAnim[i], buttonHover[i] ? 1.0 : 0.0, speed);
   }
-  displayAzimuth = lerp(displayAzimuth, currentAzimuth, 0.15);
+  // Smoother azimuth animation
+  displayAzimuth = lerp(displayAzimuth, currentAzimuth, 0.18);
+  
+  // Smooth power switch animation
+  powerSwitchAnim = lerp(powerSwitchAnim, systemOn ? 1.0 : 0.0, 0.22);
 }
 
 void drawCurrentScreen() {
@@ -464,25 +488,45 @@ void drawAntennaButton(int idx, float x, float y, float w, float h) {
   boolean selected = (selectedAntenna == idx);
   boolean active = antennaStates[idx];
   
+  float animValue = easeOutCubic(buttonAnim[idx]);
+  
   pushMatrix();
-  if (hover) translate(0, -2 * buttonAnim[idx]);
+  if (hover) translate(0, -3 * animValue);
   
-  fill(0, 0, 0, 60 + 40 * buttonAnim[idx]);
+  // Enhanced shadow with animation
+  fill(0, 0, 0, 40 + 60 * animValue);
   noStroke();
-  rect(x + 3, y + 3, w, h, 10);
+  rect(x + 2, y + 4, w, h, 10);
   
-  color bgColor = ! systemOn ? theme.disabled : selected ? theme.accent : hover ? theme.hover : theme.secondary;
+  // Main button background
+  color bgColor = !systemOn ? theme.disabled : selected ? theme.accent : hover ? theme.hover : theme.secondary;
   fill(bgColor);
   stroke(selected ? theme.accent : theme.border);
   strokeWeight(selected ? 2 : 1);
   rect(x, y, w, h, 10);
   
-  float ledX = x + w - 14, ledY = y + 12;
-  fill(active ? theme.success : theme.disabled);
-  noStroke();
-  ellipse(ledX, ledY, 8, 8);
-  if (active) { fill(theme.success, 100); ellipse(ledX, ledY, 14, 14); }
+  // Glow effect when selected or hovered
+  if (selected || hover) {
+    noFill();
+    stroke(selected ? theme.accent : theme.hover, 80 * animValue);
+    strokeWeight(2);
+    rect(x - 1, y - 1, w + 2, h + 2, 11);
+  }
   
+  // Antenna active LED with enhanced glow
+  float ledX = x + w - 14, ledY = y + 12;
+  if (active) {
+    // Outer glow
+    fill(theme.success, 60);
+    noStroke();
+    ellipse(ledX, ledY, 16, 16);
+    fill(theme.success, 100);
+    ellipse(ledX, ledY, 12, 12);
+  }
+  fill(active ? theme.success : theme.disabled);
+  ellipse(ledX, ledY, 8, 8);
+  
+  // Directive indicator
   if (antennaDirective[idx]) {
     fill(theme.warning);
     ellipse(x + 12, y + 12, 8, 8);
@@ -493,6 +537,7 @@ void drawAntennaButton(int idx, float x, float y, float w, float h) {
     text("D", x + 12, y + 12);
   }
   
+  // Antenna name
   fill(selected ? theme.primary : theme.text);
   textFont(fontBold);
   textSize(10);
@@ -501,6 +546,7 @@ void drawAntennaButton(int idx, float x, float y, float w, float h) {
   if (name.length() > 14) name = name.substring(0, 12) + "...";
   text(name, x + w/2, y + h/2 - 6);
   
+  // PIN label
   fill(selected ? color(0, 0, 0, 150) : theme.textDim);
   textFont(fontRegular);
   textSize(8);
@@ -686,24 +732,39 @@ void drawMomentaryButton(String label, float x, float y, float w, float h, int i
   boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
   buttonHover[idx] = hover;
   
+  float animValue = easeOutCubic(buttonAnim[idx]);
+  
   pushMatrix();
-  if (hover || pressed) translate(0, -2 * buttonAnim[idx]);
+  if (hover || pressed) translate(0, -3 * animValue);
   
-  fill(0, 0, 0, 80);
+  // Enhanced shadow
+  fill(0, 0, 0, 60 + 60 * animValue);
   noStroke();
-  rect(x + 2, y + 2, w, h, 8);
+  rect(x + 2, y + 3, w, h, 8);
   
-  color bgColor = ! enabled ? theme.disabled : pressed ? activeColor : theme.secondary;
+  // Main button
+  color bgColor = !enabled ? theme.disabled : pressed ? activeColor : theme.secondary;
   fill(bgColor);
   stroke(pressed ? activeColor : theme.border);
   strokeWeight(pressed ? 2 : 1);
   rect(x, y, w, h, 8);
   
+  // Glow effect when pressed
   if (pressed && enabled) {
-    stroke(activeColor, 100);
-    strokeWeight(4);
     noFill();
+    stroke(activeColor, 120);
+    strokeWeight(3);
     rect(x - 2, y - 2, w + 4, h + 4, 10);
+    stroke(activeColor, 60);
+    strokeWeight(5);
+    rect(x - 4, y - 4, w + 8, h + 8, 12);
+  }
+  // Subtle hover glow
+  else if (hover && enabled) {
+    noFill();
+    stroke(theme.accent, 60 * animValue);
+    strokeWeight(2);
+    rect(x - 1, y - 1, w + 2, h + 2, 9);
   }
   
   fill(enabled ? (pressed ? theme.primary : theme.text) : theme.textDim);
@@ -719,18 +780,32 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
   boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
   buttonHover[idx] = hover;
   
-  pushMatrix();
-  if (hover) translate(0, -2 * buttonAnim[idx]);
+  float animValue = easeOutCubic(buttonAnim[idx]);
   
-  fill(0, 0, 0, 80);
+  pushMatrix();
+  if (hover) translate(0, -3 * animValue);
+  
+  // Enhanced shadow
+  fill(0, 0, 0, 60 + 60 * animValue);
   noStroke();
-  rect(x + 2, y + 2, w, h, 8);
+  rect(x + 2, y + 3, w, h, 8);
   
   color bgColor = !enabled ? theme.disabled : hover ? color(255, 60, 60) : theme.haltColor;
   fill(bgColor);
   stroke(theme.haltColor);
   strokeWeight(hover ? 2 : 1);
   rect(x, y, w, h, 8);
+  
+  // Glow effect on hover
+  if (hover && enabled) {
+    noFill();
+    stroke(theme.haltColor, 100 * animValue);
+    strokeWeight(2);
+    rect(x - 1, y - 1, w + 2, h + 2, 9);
+    stroke(theme.haltColor, 50 * animValue);
+    strokeWeight(4);
+    rect(x - 3, y - 3, w + 6, h + 6, 11);
+  }
   
   fill(enabled ? theme.text : theme.textDim);
   textFont(fontBold);
@@ -1309,18 +1384,27 @@ void drawTopBar() {
 void drawPowerSwitch(float x, float y) {
   float w = 55, h = 22;
   
-  fill(systemOn ? theme.success : theme.disabled);
-  stroke(systemOn ? theme.success : theme.border);
+  // Smooth color transition
+  color switchColor = lerpColor(theme.disabled, theme.success, powerSwitchAnim);
+  color borderColor = lerpColor(theme.border, theme.success, powerSwitchAnim);
+  
+  fill(switchColor);
+  stroke(borderColor);
   strokeWeight(1);
   rect(x, y, w, h, 11);
   
-  float handleX = systemOn ? x + w - 18 : x + 3;
+  // Smooth handle position with easing
+  float targetX = systemOn ? x + w - 18 : x + 3;
+  float handleX = lerp(x + 3, x + w - 18, easeInOutCubic(powerSwitchAnim));
+  
+  // Handle
   fill(255);
   noStroke();
   ellipse(handleX + 7, y + 11, 16, 16);
   
-  if (systemOn) {
-    fill(theme.success, 60);
+  // Glow effect when ON
+  if (powerSwitchAnim > 0.1) {
+    fill(theme.success, 60 * powerSwitchAnim);
     ellipse(handleX + 7, y + 11, 22, 22);
   }
   
@@ -1344,18 +1428,28 @@ void drawNavigationBar() {
     boolean active = (currentScreen == i);
     
     buttonHover[23 + i] = hover;
+    float animValue = easeOutCubic(buttonAnim[23 + i]);
     
     pushMatrix();
-    if (hover && ! active) translate(0, -2 * buttonAnim[23 + i]);
+    if (hover && !active) translate(0, -3 * animValue);
     
-    fill(0, 0, 0, 60);
+    // Enhanced shadow
+    fill(0, 0, 0, 40 + 40 * animValue);
     noStroke();
-    rect(ix + 2, startY + 2, itemW, barH, 8);
+    rect(ix + 2, startY + 3, itemW, barH, 8);
     
     fill(active ? theme.accent : hover ? theme.hover : theme.secondary);
     stroke(active ? theme.accent : theme.border);
     strokeWeight(active ? 2 : 1);
     rect(ix, startY, itemW, barH, 8);
+    
+    // Glow effect on active or hover
+    if (active || hover) {
+      noFill();
+      stroke(active ? theme.accent : theme.hover, active ? 100 : 60 * animValue);
+      strokeWeight(2);
+      rect(ix - 1, startY - 1, itemW + 2, barH + 2, 9);
+    }
     
     fill(active ? theme.primary : theme.text);
     textFont(fontBold);
