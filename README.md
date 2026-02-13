@@ -1470,11 +1470,6 @@ void activateCCWRelay() {
     sendRotorCommand("CCW:1");
   }
 }
-    rotorCCW = true;
-    addDebugLog("CCW: Premuto → Relè A1 ON");
-    sendSerialCommand("CCW:1");
-  }
-}
 
 void checkRotorButtonsPressed() {
   if (!systemOn || !rotorPowerOn) return;
@@ -2120,16 +2115,6 @@ void serialEvent(Serial p) {
     }
   } catch (Exception e) {
     addDebugLog("ERRORE serialEvent: " + e.getMessage());
-  }
-}
-    }
-    else if (data.startsWith("STATUS:") && (data.contains("stopped") || data.contains("halt") || data.contains("timeout"))) {
-      rotorCW = false; rotorCCW = false;
-      cwButtonPressed = false; ccwButtonPressed = false;
-    }
-    
-  } catch (Exception e) {
-    addDebugLog("ERRORE RX: " + e.getMessage());
   }
 }
 
