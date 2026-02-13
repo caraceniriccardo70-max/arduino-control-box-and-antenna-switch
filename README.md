@@ -1478,18 +1478,6 @@ void activateCCWRelay() {
   }
 }
 
-void sendSerialCommand(String cmd) {
-  if (arduinoConnected && arduino != null) {
-    try {
-      arduino.write(cmd + "\n");
-      addDebugLog("TX: " + cmd);
-    } catch (Exception e) {
-      addDebugLog("ERRORE TX: " + e.getMessage());
-      arduinoConnected = false;
-    }
-  }
-}
-
 void checkRotorButtonsPressed() {
   if (!systemOn || !rotorPowerOn) return;
   
