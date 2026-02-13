@@ -220,7 +220,6 @@ class SettingsManager {
       saveJSONObject(config, settingsFile);
     } catch (Exception e) { }
   }
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
