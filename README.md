@@ -925,8 +925,16 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
       strokeWeight(2);
       
       // Manual clipping to stay within button bounds
-      if (x1 < x) { float ratio = (x - x1) / (x2 - x1); y1 = y1 + ratio * (y2 - y1); x1 = x; }
-      if (x2 > x + w) { float ratio = (x + w - x1) / (x2 - x1); y2 = y1 + ratio * (y2 - y1); x2 = x + w; }
+      if (x1 < x) {
+        float ratio = (x - x1) / (x2 - x1);
+        y1 = y1 + ratio * (y2 - y1);
+        x1 = x;
+      }
+      if (x2 > x + w) {
+        float ratio = (x + w - x1) / (x2 - x1);
+        y2 = y1 + ratio * (y2 - y1);
+        x2 = x + w;
+      }
       if (y1 < y) y1 = y;
       if (y2 > y + h) y2 = y + h;
       
@@ -1474,7 +1482,7 @@ void drawSystemSettings(float px, float py) {
   textAlign(LEFT, TOP);
   text("Versione: " + APP_VERSION, px + 30, btnY + 55);
   text("Relè antenne: Pin 4-9", px + 30, btnY + 70);
-  text("Relè rotore: CW=Pin3, CCW=Pin4, BRK=Pin5, PWR=Pin7", px + 30, btnY + 85);
+  text("Relè rotatore: CW=Pin3, CCW=Pin4, BRK=Pin5, PWR=Pin7", px + 30, btnY + 85);
   text("LED: CW=Pin16, CCW=Pin10 (40% PWM)", px + 30, btnY + 100);
 }
 
@@ -1754,7 +1762,7 @@ void mouseDragged() {
   float knobSize = 14;
   
   // Start dragging if mouse is near knob
-  if (!brakeSliderDragging && dist(mouseX, mouseY, knobX, sliderY + 2) < knobSize) {
+  if (!brakeSliderDragging && dist(mouseX, mouseY, knobX, sliderY + sliderH/2) < knobSize) {
     brakeSliderDragging = true;
   }
   
@@ -1981,7 +1989,7 @@ void emergencyHalt() {
   addDebugLog("!!! EMERGENCY HALT !!!");
   sendRotatorCommand("CW:0");
   sendRotatorCommand("CCW:0");
-  sendRotatorCommand("BRAKE:0:0");
+  sendRotatorCommand("BRAKE:0:0");  // Immediate brake engagement (0ms delay) for safety
   sendRotatorCommand("HALT:1");
   
   if (goToActive) {
