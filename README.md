@@ -2386,7 +2386,9 @@ void processRotatorData(String data) {
           addNotification("Target raggiunto!", SUCCESS);
         }
       }
-    } catch (Exception e) {}
+    } catch (Exception e) {
+      addDebugLog("ERRORE parsing AZI: " + data + " - " + e.getMessage());
+    }
   }
   else if (data.startsWith("ROTATOR:")) {
     String status = data.substring(8);
