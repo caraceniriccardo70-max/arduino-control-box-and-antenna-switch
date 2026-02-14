@@ -34,8 +34,8 @@ class ThemeColors {
   color cwColor = #00FF00;
   color ccwColor = #FF8800;
   color haltColor = #FF3030;
-  color rotorPowerOn = #00AAFF;
-  color rotorPowerOff = #555555;
+  color rotatorPowerOn = #00AAFF;
+  color rotatorPowerOff = #555555;
 }
 
 ThemeColors theme = new ThemeColors();
@@ -236,7 +236,7 @@ int antBaudRate = 9600;
 String antWifiIP = "192.168.1.100";
 int antWifiPort = 8080;
 
-// ESP32 Rotore
+// ESP32 Rotatore
 int rotConnMode = 0; // 0=USB, 1=WiFi
 Serial rotSerial;
 Client rotClient;
@@ -261,16 +261,19 @@ boolean[] antennaDirective = new boolean[6];
 int selectedAntenna = -1;
 
 boolean systemOn = true;
-boolean rotorPowerOn = false;  // NUOVO: Stato ON/OFF rotore
+boolean rotatorPowerOn = false;  // NUOVO: Stato ON/OFF rotatore
 int currentScreen = 0;
 float screenTransition = 0;
 boolean transitioning = false;
 int targetScreen = 0;
 
-boolean rotorCW = false;
-boolean rotorCCW = false;
+boolean rotatorCW = false;
+boolean rotatorCCW = false;
 boolean cwButtonPressed = false;
 boolean ccwButtonPressed = false;
+boolean brakeReleased = false;  // Brake release state
+float targetAzimuth = -1;  // -1 = nessun target
+boolean goToActive = false;
 float currentAzimuth = 0;
 float displayAzimuth = 0;
 float mapCenterX, mapCenterY;
@@ -383,7 +386,7 @@ void draw() {
   
   if (rotConnMode == 1 && rotClient != null && rotClient.available() > 0) {
     String data = rotClient.readStringUntil('\n');
-    if (data != null) processRotorData(data.trim());
+    if (data != null) processRotatorData(data.trim());
   }
   
   if (transitioning) {
@@ -457,7 +460,7 @@ void drawTargetScreen() {
 
 void drawControlScreen() {
   drawAntennaPanel();
-  drawRotorPanel();
+  drawRotatorPanel();
   drawStatusBar();
 }
 
@@ -555,39 +558,39 @@ void drawAntennaButton(int idx, float x, float y, float w, float h) {
   popMatrix();
 }
 
-void drawRotorPanel() {
+void drawRotatorPanel() {
   float px = 330, py = 55, pw = 450, ph = 420;
-  drawPanel(px, py, pw, ph, "ROTOR CONTROL", true);
+  drawPanel(px, py, pw, ph, "ROTATOR CONTROL", true);
   
   mapCenterX = px + pw/2;
   mapCenterY = py + 180;
   
-  // NUOVO: Pulsante ON/OFF rotore
-  drawRotorPowerSwitch(px + 20, py + 45);
+  // NUOVO: Pulsante ON/OFF rotatore
+  drawRotatorPowerSwitch(px + 20, py + 45);
   
   drawAzimuthMap();
-  drawRotorButtons();
+  drawRotatorButtons();
 }
 
-// NUOVO: Switch ON/OFF rotore
-void drawRotorPowerSwitch(float x, float y) {
+// NUOVO: Switch ON/OFF rotatore
+void drawRotatorPowerSwitch(float x, float y) {
   float w = 120, h = 30;
   
   boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && systemOn;
   buttonHover[27] = hover;
   
   // Background
-  fill(rotorPowerOn ? theme.rotorPowerOn : theme.rotorPowerOff);
-  stroke(rotorPowerOn ? theme.rotorPowerOn : theme.border);
+  fill(rotatorPowerOn ? theme.rotatorPowerOn : theme.rotatorPowerOff);
+  stroke(rotatorPowerOn ? theme.rotatorPowerOn : theme.border);
   strokeWeight(hover ? 2 : 1);
   rect(x, y, w, h, 8);
   
   // LED indicatore
   float ledX = x + 15;
-  fill(rotorPowerOn ? theme.success : theme.error);
+  fill(rotatorPowerOn ? theme.success : theme.error);
   noStroke();
   ellipse(ledX, y + h/2, 10, 10);
-  if (rotorPowerOn) {
+  if (rotatorPowerOn) {
     fill(theme.success, 100);
     ellipse(ledX, y + h/2, 16, 16);
   }
@@ -597,7 +600,7 @@ void drawRotorPowerSwitch(float x, float y) {
   textFont(fontBold);
   textSize(11);
   textAlign(LEFT, CENTER);
-  text("ROTOR: " + (rotorPowerOn ? "ON" : "OFF"), x + 28, y + h/2);
+  text("ROTATOR: " + (rotatorPowerOn ? "ON" : "OFF"), x + 28, y + h/2);
   
   // Etichetta
   fill(theme.textDim);
@@ -662,6 +665,30 @@ void drawAzimuthMap() {
     endShape(CLOSE);
   }
   
+  // Draw target azimuth if Go To is active
+  if (targetAzimuth >= 0) {
+    float targetAngle = radians(targetAzimuth - 90);
+    
+    // Draw dashed target line
+    stroke(theme.warning, 180);
+    strokeWeight(2);
+    float dashLen = 8, gapLen = 6;
+    for (float r = 25; r < mapRadius; r += dashLen + gapLen) {
+      float r1 = r;
+      float r2 = min(r + dashLen, mapRadius);
+      line(cos(targetAngle) * r1, sin(targetAngle) * r1, cos(targetAngle) * r2, sin(targetAngle) * r2);
+    }
+    
+    // Draw target marker (triangle)
+    pushMatrix();
+    translate(cos(targetAngle) * (mapRadius - 8), sin(targetAngle) * (mapRadius - 8));
+    rotate(targetAngle + HALF_PI);
+    fill(theme.warning, 200);
+    noStroke();
+    triangle(-6, -8, 6, -8, 0, 0);
+    popMatrix();
+  }
+  
   float needleAngle = radians(displayAzimuth - 90);
   
   stroke(0, 0, 0, 80);
@@ -680,25 +707,25 @@ void drawAzimuthMap() {
   triangle(-5, -10, 5, -10, 0, 0);
   popMatrix();
   
-  if (rotorCW || rotorCCW) {
-    stroke(rotorCW ? theme.cwColor : theme.ccwColor, 120 + 80 * sin(millis() * 0.01));
+  if (rotatorCW || rotatorCCW) {
+    stroke(rotatorCW ? theme.cwColor : theme.ccwColor, 120 + 80 * sin(millis() * 0.01));
     strokeWeight(2);
     noFill();
     ellipse(0, 0, 50, 50);
   }
   
   fill(theme.secondary);
-  stroke(rotorPowerOn ? theme.rotorPowerOn : theme.border);
+  stroke(rotatorPowerOn ? theme.rotatorPowerOn : theme.border);
   strokeWeight(2);
   ellipse(0, 0, 65, 65);
   
-  if (systemOn && rotorPowerOn) {
+  if (systemOn && rotatorPowerOn) {
     fill(theme.accent, 30);
     noStroke();
     ellipse(0, 0, 75, 75);
   }
   
-  fill(systemOn && rotorPowerOn ? theme.accent : theme.disabled);
+  fill(systemOn && rotatorPowerOn ? theme.accent : theme.disabled);
   textFont(fontBold);
   textSize(16);
   textAlign(CENTER, CENTER);
@@ -707,25 +734,32 @@ void drawAzimuthMap() {
   fill(theme.textDim);
   textSize(9);
   String status = "STOP";
-  if (! rotorPowerOn) status = "OFF";
-  else if (rotorCW) status = "→ CW";
-  else if (rotorCCW) status = "← CCW";
+  if (! rotatorPowerOn) status = "OFF";
+  else if (rotatorCW) status = "→ CW";
+  else if (rotatorCCW) status = "← CCW";
   text(status, 0, 12);
+  
+  // Display target azimuth if Go To is active
+  if (targetAzimuth >= 0) {
+    fill(theme.warning);
+    textSize(8);
+    text("TARGET: " + nf(targetAzimuth, 1, 1) + "°", 0, 22);
+  }
   
   popMatrix();
 }
 
-void drawRotorButtons() {
+void drawRotatorButtons() {
   float centerX = mapCenterX;
   float btnY = mapCenterY + 155;
   float btnW = 75, btnH = 38, gap = 10;
   
-  // Disabilita pulsanti se rotore è OFF
-  boolean rotorEnabled = systemOn && rotorPowerOn;
+  // Disabilita pulsanti se rotatore è OFF
+  boolean rotatorEnabled = systemOn && rotatorPowerOn;
   
-  drawMomentaryButton("◄ CCW", centerX - btnW - gap/2 - btnW/2, btnY, btnW, btnH, 20, ccwButtonPressed, theme.ccwColor, rotorEnabled);
-  drawHaltButton("HALT", centerX - btnW/2, btnY, btnW, btnH, 21, rotorEnabled);
-  drawMomentaryButton("CW ►", centerX + gap/2 + btnW/2, btnY, btnW, btnH, 22, cwButtonPressed, theme.cwColor, rotorEnabled);
+  drawMomentaryButton("◄ CCW", centerX - btnW - gap/2 - btnW/2, btnY, btnW, btnH, 20, ccwButtonPressed, theme.ccwColor, rotatorEnabled);
+  drawBrakeButton("BRAKE", centerX - btnW/2, btnY, btnW, btnH, 21, rotatorEnabled);
+  drawMomentaryButton("CW ►", centerX + gap/2 + btnW/2, btnY, btnW, btnH, 22, cwButtonPressed, theme.cwColor, rotatorEnabled);
 }
 
 void drawMomentaryButton(String label, float x, float y, float w, float h, int idx, boolean pressed, color activeColor, boolean enabled) {
@@ -776,7 +810,7 @@ void drawMomentaryButton(String label, float x, float y, float w, float h, int i
   popMatrix();
 }
 
-void drawHaltButton(String label, float x, float y, float w, float h, int idx, boolean enabled) {
+void drawBrakeButton(String label, float x, float y, float w, float h, int idx, boolean enabled) {
   boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
   buttonHover[idx] = hover;
   
@@ -790,9 +824,26 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
   noStroke();
   rect(x + 2, y + 3, w, h, 8);
   
-  color bgColor = !enabled ? theme.disabled : hover ? color(255, 60, 60) : theme.haltColor;
+  // Background with red stripes
+  color bgColor = !enabled ? theme.disabled : brakeReleased ? color(255, 80, 60) : theme.haltColor;
+  
+  // Draw striped background
   fill(bgColor);
-  stroke(theme.haltColor);
+  noStroke();
+  rect(x, y, w, h, 8);
+  
+  if (enabled) {
+    // Red diagonal stripes
+    stroke(color(180, 0, 0), brakeReleased ? 200 : 120);
+    strokeWeight(2);
+    for (float i = -h; i < w + h; i += 8) {
+      line(x + i, y, x + i + h, y + h);
+    }
+  }
+  
+  // Border
+  noFill();
+  stroke(brakeReleased ? color(255, 100, 80) : theme.haltColor);
   strokeWeight(hover ? 2 : 1);
   rect(x, y, w, h, 8);
   
@@ -809,9 +860,11 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
   
   fill(enabled ? theme.text : theme.textDim);
   textFont(fontBold);
-  textSize(11);
+  textSize(10);
   textAlign(CENTER, CENTER);
-  text(label, x + w/2, y + h/2);
+  text(label, x + w/2, y + h/2 - 4);
+  textSize(8);
+  text("RELEASE", x + w/2, y + h/2 + 8);
   
   popMatrix();
 }
@@ -832,11 +885,11 @@ void drawStatusBar() {
   drawStatusItem(startX + spacing, iconY, "ROT", rotConnected ? "OK" : "DISC", rotConnected ? theme.success : theme.error);
   drawStatusItem(startX + spacing * 2, iconY, "Sistema", systemOn ? "ON" : "OFF", systemOn ? theme.success : theme.warning);
   
-  String rotorSt = "STOP";
-  color rotorCol = theme.disabled;
-  if (rotorCW) { rotorSt = "CW"; rotorCol = theme.cwColor; }
-  else if (rotorCCW) { rotorSt = "CCW"; rotorCol = theme.ccwColor; }
-  drawStatusItem(startX + spacing * 3, iconY, "Dir", rotorSt, rotorCol);
+  String rotatorSt = "STOP";
+  color rotatorCol = theme.disabled;
+  if (rotatorCW) { rotatorSt = "CW"; rotatorCol = theme.cwColor; }
+  else if (rotatorCCW) { rotatorSt = "CCW"; rotatorCol = theme.ccwColor; }
+  drawStatusItem(startX + spacing * 3, iconY, "Dir", rotatorSt, rotatorCol);
   
   String antSt = selectedAntenna >= 0 ?  "ANT" + (selectedAntenna + 1) : "NONE";
   drawStatusItem(startX + spacing * 4, iconY, "Ant", antSt, selectedAntenna >= 0 ?  theme.accent : theme.disabled);
@@ -1041,12 +1094,19 @@ void drawConnectionSettings(float px, float py) {
       }
     }
   } else {
-    // WiFi Mode - Show IP and Port
-    fill(theme.text);
+    // WiFi Mode - Show IP and Port as editable fields
+    fill(theme.textDim);
     textFont(fontRegular);
-    textSize(10);
+    textSize(9);
     textAlign(LEFT, CENTER);
-    text("IP: " + antWifiIP + ":" + antWifiPort, px + 30, configY);
+    text("IP:", px + 30, configY - 10);
+    text("Porta:", px + 200, configY - 10);
+    
+    // IP field
+    drawTextField(px + 30, configY, 150, 26, 20, antWifiIP, "192.168.1.100");
+    
+    // Port field
+    drawTextField(px + 200, configY, 80, 26, 21, str(antWifiPort), "8080");
   }
   
   // Connect/Disconnect Button
@@ -1071,13 +1131,13 @@ void drawConnectionSettings(float px, float py) {
   noStroke();
   ellipse(ledX, antBtnY + 16, 10, 10);
   
-  // ========== ESP32 ROTORE SECTION ==========
+  // ========== ESP32 ROTATORE SECTION ==========
   float rotY = antBtnY + 50;
   fill(theme.accent);
   textFont(fontBold);
   textSize(12);
   textAlign(LEFT, TOP);
-  text("ESP32 ROTORE", px + 30, rotY);
+  text("ESP32 ROTATORE", px + 30, rotY);
   
   // WiFi/USB Toggle
   float rotToggleY = rotY + 25;
@@ -1130,12 +1190,19 @@ void drawConnectionSettings(float px, float py) {
       }
     }
   } else {
-    // WiFi Mode
-    fill(theme.text);
+    // WiFi Mode - Show IP and Port as editable fields
+    fill(theme.textDim);
     textFont(fontRegular);
-    textSize(10);
+    textSize(9);
     textAlign(LEFT, CENTER);
-    text("IP: " + rotWifiIP + ":" + rotWifiPort, px + 30, rotConfigY);
+    text("IP:", px + 30, rotConfigY - 10);
+    text("Porta:", px + 200, rotConfigY - 10);
+    
+    // IP field
+    drawTextField(px + 30, rotConfigY, 150, 26, 22, rotWifiIP, "192.168.1.101");
+    
+    // Port field
+    drawTextField(px + 200, rotConfigY, 80, 26, 23, str(rotWifiPort), "8081");
   }
   
   // Connect/Disconnect Button
@@ -1231,7 +1298,7 @@ void drawSystemSettings(float px, float py) {
   textAlign(LEFT, TOP);
   text("Versione: " + APP_VERSION, px + 30, btnY + 55);
   text("Relè antenne: Pin 4-9", px + 30, btnY + 70);
-  text("Relè rotore: CW=A0, CCW=A1, PWR=A3", px + 30, btnY + 85);
+  text("Relè rotatore: CW=A0, CCW=A1, PWR=A3", px + 30, btnY + 85);
   text("LED: CW=Pin16, CCW=Pin10 (40% PWM)", px + 30, btnY + 100);
 }
 
@@ -1468,8 +1535,9 @@ void drawNavigationBar() {
 void mousePressed() {
   if (currentScreen == 0) {
     checkAntennaClick();
-    checkRotorPowerClick();
-    checkRotorButtonsPressed();
+    checkRotatorPowerClick();
+    checkRotatorButtonsPressed();
+    checkAzimuthDialClick();
   } else if (currentScreen == 1) {
     checkSettingsClick();
   } else if (currentScreen == 2) {
@@ -1482,15 +1550,15 @@ void mousePressed() {
 
 void mouseReleased() {
   if (cwButtonPressed || ccwButtonPressed) {
-    deactivateRotorRelays();
+    deactivateRotatorRelays();
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  ROTOR POWER CONTROL (ON/OFF)
+//  ROTATOR POWER CONTROL (ON/OFF)
 // ═══════════════════════════════════════════════════════════════════════════
 
-void checkRotorPowerClick() {
+void checkRotatorPowerClick() {
   if (! systemOn) return;
   
   float px = 330, py = 55;
@@ -1498,75 +1566,89 @@ void checkRotorPowerClick() {
   float w = 120, h = 30;
   
   if (mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h) {
-    toggleRotorPower();
+    toggleRotatorPower();
   }
 }
 
-void toggleRotorPower() {
-  rotorPowerOn = !rotorPowerOn;
+void toggleRotatorPower() {
+  rotatorPowerOn = !rotatorPowerOn;
   
-  if (! rotorPowerOn) {
-    // Spegni movimento quando si spegne il rotore
-    deactivateRotorRelays();
+  if (! rotatorPowerOn) {
+    // Spegni movimento quando si spegne il rotatore
+    deactivateRotatorRelays();
   }
   
-  addDebugLog("Rotor Power: " + (rotorPowerOn ? "ON" : "OFF"));
-  sendRotorCommand("ROTOR_PWR:" + (rotorPowerOn ?  "1" : "0"));
-  addNotification("Rotor " + (rotorPowerOn ?  "ON" : "OFF"), rotorPowerOn ? SUCCESS : WARNING);
+  addDebugLog("Rotator Power: " + (rotatorPowerOn ? "ON" : "OFF"));
+  sendRotatorCommand("ROTATOR_PWR:" + (rotatorPowerOn ?  "1" : "0"));
+  addNotification("Rotator " + (rotatorPowerOn ?  "ON" : "OFF"), rotatorPowerOn ? SUCCESS : WARNING);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PULSANTI NA - CONTROLLO RELÈ ROTORE
+//  PULSANTI NA - CONTROLLO RELÈ ROTATORE
 // ═══════════════════════════════════════════════════════════════════════════
 
-void deactivateRotorRelays() {
+void deactivateRotatorRelays() {
   if (cwButtonPressed) {
     cwButtonPressed = false;
-    rotorCW = false;
+    rotatorCW = false;
     addDebugLog("CW: Rilasciato → Relè A0 OFF");
-    sendRotorCommand("CW:0");
+    sendRotatorCommand("CW:0");
   }
   
   if (ccwButtonPressed) {
     ccwButtonPressed = false;
-    rotorCCW = false;
+    rotatorCCW = false;
     addDebugLog("CCW: Rilasciato → Relè A1 OFF");
-    sendRotorCommand("CCW:0");
+    sendRotatorCommand("CCW:0");
   }
 }
 
 void activateCWRelay() {
-  if (!cwButtonPressed && systemOn && rotorPowerOn) {
+  if (!cwButtonPressed && systemOn && rotatorPowerOn) {
     if (ccwButtonPressed) {
       ccwButtonPressed = false;
-      rotorCCW = false;
-      sendRotorCommand("CCW:0");
+      rotatorCCW = false;
+      sendRotatorCommand("CCW:0");
+    }
+    
+    // Auto-activate brake release when starting rotation
+    if (!brakeReleased) {
+      brakeReleased = true;
+      sendRotatorCommand("BRAKE:1");
+      addDebugLog("Brake: Auto-released for CW");
     }
     
     cwButtonPressed = true;
-    rotorCW = true;
+    rotatorCW = true;
     addDebugLog("CW: Premuto → Relè A0 ON");
-    sendRotorCommand("CW:1");
+    sendRotatorCommand("CW:1");
   }
 }
 
 void activateCCWRelay() {
-  if (!ccwButtonPressed && systemOn && rotorPowerOn) {
+  if (!ccwButtonPressed && systemOn && rotatorPowerOn) {
     if (cwButtonPressed) {
       cwButtonPressed = false;
-      rotorCW = false;
-      sendRotorCommand("CW:0");
+      rotatorCW = false;
+      sendRotatorCommand("CW:0");
+    }
+    
+    // Auto-activate brake release when starting rotation
+    if (!brakeReleased) {
+      brakeReleased = true;
+      sendRotatorCommand("BRAKE:1");
+      addDebugLog("Brake: Auto-released for CCW");
     }
     
     ccwButtonPressed = true;
-    rotorCCW = true;
+    rotatorCCW = true;
     addDebugLog("CCW: Premuto → Relè A1 ON");
-    sendRotorCommand("CCW:1");
+    sendRotatorCommand("CCW:1");
   }
 }
 
-void checkRotorButtonsPressed() {
-  if (!systemOn || !rotorPowerOn) return;
+void checkRotatorButtonsPressed() {
+  if (!systemOn || !rotatorPowerOn) return;
   
   float centerX = mapCenterX;
   float btnY = mapCenterY + 155;
@@ -1579,10 +1661,10 @@ void checkRotorButtonsPressed() {
     return;
   }
   
-  // HALT
-  float haltX = centerX - btnW/2;
-  if (mouseX > haltX && mouseX < haltX + btnW && mouseY > btnY && mouseY < btnY + 38) {
-    emergencyHalt();
+  // BRAKE RELEASE
+  float brakeX = centerX - btnW/2;
+  if (mouseX > brakeX && mouseX < brakeX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+    toggleBrakeRelease();
     return;
   }
   
@@ -1594,16 +1676,60 @@ void checkRotorButtonsPressed() {
   }
 }
 
+void toggleBrakeRelease() {
+  brakeReleased = !brakeReleased;
+  
+  addDebugLog("Brake: " + (brakeReleased ? "RELEASED" : "ENGAGED"));
+  sendRotatorCommand("BRAKE:" + (brakeReleased ? "1" : "0"));
+  addNotification("Brake " + (brakeReleased ? "Released" : "Engaged"), brakeReleased ? SUCCESS : WARNING);
+}
+
+void checkAzimuthDialClick() {
+  if (!systemOn || !rotatorPowerOn) return;
+  
+  // Check if click is inside the azimuth dial circle
+  float dx = mouseX - mapCenterX;
+  float dy = mouseY - mapCenterY;
+  float distance = sqrt(dx * dx + dy * dy);
+  
+  // Only respond to clicks within the outer ring (outside center circle)
+  if (distance > 35 && distance < mapRadius) {
+    // Calculate angle from click position
+    float clickAngle = atan2(dy, dx);
+    float degrees = degrees(clickAngle) + 90;
+    if (degrees < 0) degrees += 360;
+    if (degrees >= 360) degrees -= 360;
+    
+    // Set target azimuth
+    targetAzimuth = degrees;
+    goToActive = true;
+    
+    // Auto-activate brake release for Go To
+    if (!brakeReleased) {
+      brakeReleased = true;
+      sendRotatorCommand("BRAKE:1");
+      addDebugLog("Brake: Auto-released for GOTO");
+    }
+    
+    // Send GOTO command
+    sendRotatorCommand("GOTO:" + nf(targetAzimuth, 1, 1));
+    addDebugLog("GOTO: Target set to " + nf(targetAzimuth, 1, 1) + "°");
+    addNotification("Target: " + nf(targetAzimuth, 1, 1) + "°", SUCCESS);
+  }
+}
+
 void emergencyHalt() {
   cwButtonPressed = false;
   ccwButtonPressed = false;
-  rotorCW = false;
-  rotorCCW = false;
+  rotatorCW = false;
+  rotatorCCW = false;
+  brakeReleased = false;
   
-  addDebugLog("! !! EMERGENCY HALT !!!");
-  sendRotorCommand("CW:0");
-  sendRotorCommand("CCW:0");
-  sendRotorCommand("HALT:1");
+  addDebugLog("!!! EMERGENCY HALT !!!");
+  sendRotatorCommand("CW:0");
+  sendRotatorCommand("CCW:0");
+  sendRotatorCommand("BRAKE:0");
+  sendRotatorCommand("HALT:1");
   addNotification("EMERGENCY HALT!", ERROR);
 }
 
@@ -1743,6 +1869,25 @@ void checkConnectionSettingsClick(float px, float py) {
     }
   }
   
+  // ANT WiFi IP/Port editing (WiFi mode)
+  if (antConnMode == 1) {
+    float configY = toggleY + 35;
+    
+    // IP field click
+    if (mouseX > px + 30 && mouseX < px + 180 && mouseY > configY && mouseY < configY + 26) {
+      editingField = 20;
+      inputBuffer = antWifiIP;
+      return;
+    }
+    
+    // Port field click
+    if (mouseX > px + 200 && mouseX < px + 280 && mouseY > configY && mouseY < configY + 26) {
+      editingField = 21;
+      inputBuffer = str(antWifiPort);
+      return;
+    }
+  }
+  
   // ANT Connect/Disconnect
   float configY = toggleY + 35;
   float antBtnY = configY + 30;
@@ -1752,20 +1897,20 @@ void checkConnectionSettingsClick(float px, float py) {
     return;
   }
   
-  // === ROTOR SECTION ===
+  // === ROTATOR SECTION ===
   float rotY = antBtnY + 50;
   float rotToggleY = rotY + 25;
   
   // ROT USB/WiFi toggle
   if (mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > rotToggleY && mouseY < rotToggleY + toggleH) {
     rotConnMode = 0;
-    addDebugLog("ESP32 Rotore: modo USB");
+    addDebugLog("ESP32 Rotatore: modo USB");
     return;
   }
   
   if (mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > rotToggleY && mouseY < rotToggleY + toggleH) {
     rotConnMode = 1;
-    addDebugLog("ESP32 Rotore: modo WiFi");
+    addDebugLog("ESP32 Rotatore: modo WiFi");
     return;
   }
   
@@ -1777,9 +1922,28 @@ void checkConnectionSettingsClick(float px, float py) {
       float pbx = px + 120 + i * (portBtnW + 5);
       if (mouseX > pbx && mouseX < pbx + portBtnW && mouseY > rotConfigY - 11 && mouseY < rotConfigY + 11) {
         rotComPort = availablePorts[i];
-        addDebugLog("ESP32 Rotore porta: " + rotComPort);
+        addDebugLog("ESP32 Rotatore porta: " + rotComPort);
         return;
       }
+    }
+  }
+  
+  // ROT WiFi IP/Port editing (WiFi mode)
+  if (rotConnMode == 1) {
+    float rotConfigY = rotToggleY + 35;
+    
+    // IP field click
+    if (mouseX > px + 30 && mouseX < px + 180 && mouseY > rotConfigY && mouseY < rotConfigY + 26) {
+      editingField = 22;
+      inputBuffer = rotWifiIP;
+      return;
+    }
+    
+    // Port field click
+    if (mouseX > px + 200 && mouseX < px + 280 && mouseY > rotConfigY && mouseY < rotConfigY + 26) {
+      editingField = 23;
+      inputBuffer = str(rotWifiPort);
+      return;
     }
   }
   
@@ -1846,7 +2010,7 @@ void checkTopBarClick() {
     
     if (! systemOn) {
       emergencyHalt();
-      rotorPowerOn = false;
+      rotatorPowerOn = false;
       selectedAntenna = -1;
       for (int i = 0; i < 6; i++) antennaStates[i] = false;
     }
@@ -1898,6 +2062,22 @@ void keyPressed() {
       } else if (editingField >= 10 && editingField < 16 && key >= '0' && key <= '9' && inputBuffer.length() < 2) {
         inputBuffer += key;
         tempAntennaPins[editingField - 10] = int(inputBuffer);
+      } else if (editingField == 20 && inputBuffer.length() < 15) {
+        // antWifiIP
+        inputBuffer += key;
+        antWifiIP = inputBuffer;
+      } else if (editingField == 21 && key >= '0' && key <= '9' && inputBuffer.length() < 5) {
+        // antWifiPort
+        inputBuffer += key;
+        antWifiPort = int(inputBuffer);
+      } else if (editingField == 22 && inputBuffer.length() < 15) {
+        // rotWifiIP
+        inputBuffer += key;
+        rotWifiIP = inputBuffer;
+      } else if (editingField == 23 && key >= '0' && key <= '9' && inputBuffer.length() < 5) {
+        // rotWifiPort
+        inputBuffer += key;
+        rotWifiPort = int(inputBuffer);
       }
     }
     return;
@@ -1906,7 +2086,7 @@ void keyPressed() {
   if (key == 'h' || key == 'H') { emergencyHalt(); }
   if (key == 'r' || key == 'R') { scanSerialPorts(); addNotification("Porte scansionate", INFO); }
   if (key == 'd' || key == 'D') { debugMode = !debugMode; }
-  if (key == 'p' || key == 'P') { if (systemOn) toggleRotorPower(); }
+  if (key == 'p' || key == 'P') { if (systemOn) toggleRotatorPower(); }
   if (systemOn && key >= '1' && key <= '6') { selectAntenna(key - '1'); }
   if (key == ESC) { if (currentScreen != 0) { targetScreen = 0; transitioning = true; screenTransition = 0; } key = 0; }
 }
@@ -1916,6 +2096,14 @@ void updateFieldFromBuffer() {
     tempAntennaNames[editingField] = inputBuffer;
   } else if (editingField >= 10 && editingField < 16 && inputBuffer.length() > 0) {
     tempAntennaPins[editingField - 10] = int(inputBuffer);
+  } else if (editingField == 20) {
+    antWifiIP = inputBuffer;
+  } else if (editingField == 21 && inputBuffer.length() > 0) {
+    antWifiPort = int(inputBuffer);
+  } else if (editingField == 22) {
+    rotWifiIP = inputBuffer;
+  } else if (editingField == 23 && inputBuffer.length() > 0) {
+    rotWifiPort = int(inputBuffer);
   }
 }
 
@@ -2052,14 +2240,14 @@ void sendAntennaCommand(String cmd) {
   }
 }
 
-// ESP32 Rotor Functions
+// ESP32 Rotator Functions
 void connectRotESP32() {
   if (rotConnected) return;
   
   try {
     if (rotConnMode == 0) {
       // USB Mode
-      addDebugLog("Connessione ESP32 Rotore via USB: " + rotComPort + "...");
+      addDebugLog("Connessione ESP32 Rotatore via USB: " + rotComPort + "...");
       
       boolean found = false;
       for (String p : Serial.list()) { if (p.equals(rotComPort)) { found = true; break; } }
@@ -2073,20 +2261,20 @@ void connectRotESP32() {
       rotSerial = new Serial(this, rotComPort, rotBaudRate);
       rotSerial.bufferUntil('\n');
       rotConnected = true;
-      addNotification("ESP32 Rotore connesso (USB)", SUCCESS);
-      addDebugLog("ESP32 Rotore connesso via USB!");
+      addNotification("ESP32 Rotatore connesso (USB)", SUCCESS);
+      addDebugLog("ESP32 Rotatore connesso via USB!");
       
     } else {
       // WiFi Mode
-      addDebugLog("Connessione ESP32 Rotore via WiFi: " + rotWifiIP + ":" + rotWifiPort + "...");
+      addDebugLog("Connessione ESP32 Rotatore via WiFi: " + rotWifiIP + ":" + rotWifiPort + "...");
       
       if (rotClient != null) { try { rotClient.stop(); } catch (Exception e) {} }
       rotClient = new Client(this, rotWifiIP, rotWifiPort);
       
       if (rotClient.active()) {
         rotConnected = true;
-        addNotification("ESP32 Rotore connesso (WiFi)", SUCCESS);
-        addDebugLog("ESP32 Rotore connesso via WiFi!");
+        addNotification("ESP32 Rotatore connesso (WiFi)", SUCCESS);
+        addDebugLog("ESP32 Rotatore connesso via WiFi!");
       } else {
         addNotification("Impossibile connettere a " + rotWifiIP, ERROR);
         rotClient = null;
@@ -2095,11 +2283,11 @@ void connectRotESP32() {
     
     if (rotConnected) {
       delay(100);
-      sendRotorCommand("ROTOR_PWR:" + (rotorPowerOn ? "1" : "0"));
+      sendRotatorCommand("ROTATOR_PWR:" + (rotatorPowerOn ? "1" : "0"));
     }
     
   } catch (Exception e) {
-    addNotification("Errore connessione ESP32 Rotore", ERROR);
+    addNotification("Errore connessione ESP32 Rotatore", ERROR);
     addDebugLog("ERRORE: " + e.getMessage());
     rotConnected = false;
     rotSerial = null;
@@ -2108,13 +2296,14 @@ void connectRotESP32() {
 }
 
 void disconnectRotESP32() {
-  addDebugLog("Disconnessione ESP32 Rotore...");
+  addDebugLog("Disconnessione ESP32 Rotatore...");
   
   try {
     if (rotConnected) {
-      sendRotorCommand("CW:0");
-      sendRotorCommand("CCW:0");
-      sendRotorCommand("ROTOR_PWR:0");
+      sendRotatorCommand("CW:0");
+      sendRotatorCommand("CCW:0");
+      sendRotatorCommand("BRAKE:0");
+      sendRotatorCommand("ROTATOR_PWR:0");
       delay(100);
     }
     
@@ -2122,14 +2311,15 @@ void disconnectRotESP32() {
     if (rotClient != null) { rotClient.stop(); rotClient = null; }
     
     rotConnected = false;
-    rotorCW = false;
-    rotorCCW = false;
+    rotatorCW = false;
+    rotatorCCW = false;
     cwButtonPressed = false;
     ccwButtonPressed = false;
-    rotorPowerOn = false;
+    brakeReleased = false;
+    rotatorPowerOn = false;
     
-    addNotification("ESP32 Rotore disconnesso", WARNING);
-    addDebugLog("ESP32 Rotore disconnesso");
+    addNotification("ESP32 Rotatore disconnesso", WARNING);
+    addDebugLog("ESP32 Rotatore disconnesso");
     
   } catch (Exception e) {
     addDebugLog("ERRORE: " + e.getMessage());
@@ -2139,7 +2329,7 @@ void disconnectRotESP32() {
   }
 }
 
-void sendRotorCommand(String cmd) {
+void sendRotatorCommand(String cmd) {
   if (!rotConnected) return;
   
   try {
@@ -2175,24 +2365,42 @@ void processAntennaData(String data) {
   }
 }
 
-void processRotorData(String data) {
+void processRotatorData(String data) {
   if (data.length() == 0) return;
   addDebugLog("RX ROT: " + data);
   
   if (data.startsWith("AZI:")) {
-    try { currentAzimuth = Float.parseFloat(data.substring(4)); } catch (Exception e) {}
+    try { 
+      currentAzimuth = Float.parseFloat(data.substring(4));
+      
+      // Check if Go To target is reached
+      if (goToActive && targetAzimuth >= 0) {
+        float diff = abs(currentAzimuth - targetAzimuth);
+        // Handle wrap-around (e.g., 359° to 1°)
+        if (diff > 180) diff = 360 - diff;
+        
+        if (diff < 2.0) {
+          goToActive = false;
+          targetAzimuth = -1;
+          addDebugLog("GOTO: Target raggiunto!");
+          addNotification("Target raggiunto!", SUCCESS);
+        }
+      }
+    } catch (Exception e) {
+      addDebugLog("ERRORE parsing AZI: " + data + " - " + e.getMessage());
+    }
   }
-  else if (data.startsWith("ROTOR:")) {
-    String status = data.substring(6);
-    if (status.equals("CW")) { rotorCW = true; rotorCCW = false; }
-    else if (status.equals("CCW")) { rotorCW = false; rotorCCW = true; }
-    else { rotorCW = false; rotorCCW = false; cwButtonPressed = false; ccwButtonPressed = false; }
+  else if (data.startsWith("ROTATOR:")) {
+    String status = data.substring(8);
+    if (status.equals("CW")) { rotatorCW = true; rotatorCCW = false; }
+    else if (status.equals("CCW")) { rotatorCW = false; rotatorCCW = true; }
+    else { rotatorCW = false; rotatorCCW = false; cwButtonPressed = false; ccwButtonPressed = false; }
   }
-  else if (data.startsWith("ROTOR_PWR:")) {
-    rotorPowerOn = data.substring(10).equals("ON");
+  else if (data.startsWith("ROTATOR_PWR:")) {
+    rotatorPowerOn = data.substring(12).equals("ON");
   }
   else if (data.startsWith("STATUS:")) {
-    // Handle status updates from rotor ESP32
+    // Handle status updates from rotator ESP32
   }
 }
 
@@ -2205,7 +2413,7 @@ void serialEvent(Serial p) {
     if (p == antSerial) {
       processAntennaData(data);
     } else if (p == rotSerial) {
-      processRotorData(data);
+      processRotatorData(data);
     }
   } catch (Exception e) {
     addDebugLog("ERRORE serialEvent: " + e.getMessage());
