@@ -1755,6 +1755,7 @@ void mouseDragged() {
   float btnH = 38;
   float sliderY = btnY + btnH + (goToActive ? 70 : 55);
   float sliderW = 200;
+  float sliderH = 4;
   float sliderX = centerX - sliderW / 2;
   
   // Check if mouse started on the knob
