@@ -913,11 +913,11 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
     // Use clipping to keep stripes within rounded rectangle
     pushMatrix();
     // Create clipping by drawing stripes only within bounds
-    for (float i = -h; i < w + h; i += 8) {
+    for (float stripeOffset = -h; stripeOffset < w + h; stripeOffset += 8) {
       // Calculate stripe line endpoints
-      float x1 = x + i;
+      float x1 = x + stripeOffset;
       float y1 = y;
-      float x2 = x + i + h;
+      float x2 = x + stripeOffset + h;
       float y2 = y + h;
       
       // Clip stripe to rounded rectangle bounds
@@ -1482,7 +1482,7 @@ void drawSystemSettings(float px, float py) {
   textAlign(LEFT, TOP);
   text("Versione: " + APP_VERSION, px + 30, btnY + 55);
   text("Relè antenne: Pin 4-9", px + 30, btnY + 70);
-  text("Relè rotatore: CW=Pin3, CCW=Pin4, BRK=Pin5, PWR=Pin7", px + 30, btnY + 85);
+  text("Relè rotatore: CW=Pin 3, CCW=Pin 4, BRK=Pin 5, PWR=Pin 7", px + 30, btnY + 85);
   text("LED: CW=Pin16, CCW=Pin10 (40% PWM)", px + 30, btnY + 100);
 }
 
