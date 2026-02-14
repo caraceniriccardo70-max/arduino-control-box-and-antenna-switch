@@ -271,6 +271,7 @@ boolean rotatorCW = false;
 boolean rotatorCCW = false;
 boolean cwButtonPressed = false;
 boolean ccwButtonPressed = false;
+boolean brakeReleased = false;  // Brake release state
 float currentAzimuth = 0;
 float displayAzimuth = 0;
 float mapCenterX, mapCenterY;
@@ -724,7 +725,7 @@ void drawRotatorButtons() {
   boolean rotatorEnabled = systemOn && rotatorPowerOn;
   
   drawMomentaryButton("◄ CCW", centerX - btnW - gap/2 - btnW/2, btnY, btnW, btnH, 20, ccwButtonPressed, theme.ccwColor, rotatorEnabled);
-  drawHaltButton("HALT", centerX - btnW/2, btnY, btnW, btnH, 21, rotatorEnabled);
+  drawBrakeButton("BRAKE", centerX - btnW/2, btnY, btnW, btnH, 21, rotatorEnabled);
   drawMomentaryButton("CW ►", centerX + gap/2 + btnW/2, btnY, btnW, btnH, 22, cwButtonPressed, theme.cwColor, rotatorEnabled);
 }
 
@@ -776,7 +777,7 @@ void drawMomentaryButton(String label, float x, float y, float w, float h, int i
   popMatrix();
 }
 
-void drawHaltButton(String label, float x, float y, float w, float h, int idx, boolean enabled) {
+void drawBrakeButton(String label, float x, float y, float w, float h, int idx, boolean enabled) {
   boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
   buttonHover[idx] = hover;
   
@@ -790,9 +791,26 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
   noStroke();
   rect(x + 2, y + 3, w, h, 8);
   
-  color bgColor = !enabled ? theme.disabled : hover ? color(255, 60, 60) : theme.haltColor;
+  // Background with red stripes
+  color bgColor = !enabled ? theme.disabled : brakeReleased ? color(255, 80, 60) : theme.haltColor;
+  
+  // Draw striped background
   fill(bgColor);
-  stroke(theme.haltColor);
+  noStroke();
+  rect(x, y, w, h, 8);
+  
+  if (enabled) {
+    // Red diagonal stripes
+    stroke(color(180, 0, 0), brakeReleased ? 200 : 120);
+    strokeWeight(2);
+    for (float i = -h; i < w + h; i += 8) {
+      line(x + i, y, x + i + h, y + h);
+    }
+  }
+  
+  // Border
+  noFill();
+  stroke(brakeReleased ? color(255, 100, 80) : theme.haltColor);
   strokeWeight(hover ? 2 : 1);
   rect(x, y, w, h, 8);
   
@@ -809,9 +827,11 @@ void drawHaltButton(String label, float x, float y, float w, float h, int idx, b
   
   fill(enabled ? theme.text : theme.textDim);
   textFont(fontBold);
-  textSize(11);
+  textSize(10);
   textAlign(CENTER, CENTER);
-  text(label, x + w/2, y + h/2);
+  text(label, x + w/2, y + h/2 - 4);
+  textSize(8);
+  text("RELEASE", x + w/2, y + h/2 + 8);
   
   popMatrix();
 }
@@ -1557,6 +1577,13 @@ void activateCWRelay() {
       sendRotatorCommand("CCW:0");
     }
     
+    // Auto-activate brake release when starting rotation
+    if (!brakeReleased) {
+      brakeReleased = true;
+      sendRotatorCommand("BRAKE:1");
+      addDebugLog("Brake: Auto-released for CW");
+    }
+    
     cwButtonPressed = true;
     rotatorCW = true;
     addDebugLog("CW: Premuto → Relè A0 ON");
@@ -1570,6 +1597,13 @@ void activateCCWRelay() {
       cwButtonPressed = false;
       rotatorCW = false;
       sendRotatorCommand("CW:0");
+    }
+    
+    // Auto-activate brake release when starting rotation
+    if (!brakeReleased) {
+      brakeReleased = true;
+      sendRotatorCommand("BRAKE:1");
+      addDebugLog("Brake: Auto-released for CCW");
     }
     
     ccwButtonPressed = true;
@@ -1593,10 +1627,10 @@ void checkRotatorButtonsPressed() {
     return;
   }
   
-  // HALT
-  float haltX = centerX - btnW/2;
-  if (mouseX > haltX && mouseX < haltX + btnW && mouseY > btnY && mouseY < btnY + 38) {
-    emergencyHalt();
+  // BRAKE RELEASE
+  float brakeX = centerX - btnW/2;
+  if (mouseX > brakeX && mouseX < brakeX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+    toggleBrakeRelease();
     return;
   }
   
@@ -1608,15 +1642,25 @@ void checkRotatorButtonsPressed() {
   }
 }
 
+void toggleBrakeRelease() {
+  brakeReleased = !brakeReleased;
+  
+  addDebugLog("Brake: " + (brakeReleased ? "RELEASED" : "ENGAGED"));
+  sendRotatorCommand("BRAKE:" + (brakeReleased ? "1" : "0"));
+  addNotification("Brake " + (brakeReleased ? "Released" : "Engaged"), brakeReleased ? SUCCESS : WARNING);
+}
+
 void emergencyHalt() {
   cwButtonPressed = false;
   ccwButtonPressed = false;
   rotatorCW = false;
   rotatorCCW = false;
+  brakeReleased = false;
   
   addDebugLog("!!! EMERGENCY HALT !!!");
   sendRotatorCommand("CW:0");
   sendRotatorCommand("CCW:0");
+  sendRotatorCommand("BRAKE:0");
   sendRotatorCommand("HALT:1");
   addNotification("EMERGENCY HALT!", ERROR);
 }
@@ -2190,6 +2234,7 @@ void disconnectRotESP32() {
     if (rotConnected) {
       sendRotatorCommand("CW:0");
       sendRotatorCommand("CCW:0");
+      sendRotatorCommand("BRAKE:0");
       sendRotatorCommand("ROTATOR_PWR:0");
       delay(100);
     }
@@ -2202,6 +2247,7 @@ void disconnectRotESP32() {
     rotatorCCW = false;
     cwButtonPressed = false;
     ccwButtonPressed = false;
+    brakeReleased = false;
     rotatorPowerOn = false;
     
     addNotification("ESP32 Rotatore disconnesso", WARNING);
