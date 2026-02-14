@@ -272,8 +272,14 @@ boolean rotatorCCW = false;
 boolean cwButtonPressed = false;
 boolean ccwButtonPressed = false;
 boolean brakeReleased = false;  // Brake release state
+boolean brakeButtonPressed = false;
+int brakeDelayMs = 500;
+int brakeDelayMin = 100;
+int brakeDelayMax = 3000;
+boolean brakeSliderDragging = false;
 float targetAzimuth = -1;  // -1 = nessun target
 boolean goToActive = false;
+float goToTarget = -1;
 float currentAzimuth = 0;
 float displayAzimuth = 0;
 float mapCenterX, mapCenterY;
@@ -734,7 +740,8 @@ void drawAzimuthMap() {
   fill(theme.textDim);
   textSize(9);
   String status = "STOP";
-  if (! rotatorPowerOn) status = "OFF";
+  if (!rotatorPowerOn) status = "OFF";
+  else if (goToActive) status = "→ GOTO " + nf(goToTarget, 1, 0) + "°";
   else if (rotatorCW) status = "→ CW";
   else if (rotatorCCW) status = "← CCW";
   text(status, 0, 12);
@@ -752,14 +759,27 @@ void drawAzimuthMap() {
 void drawRotatorButtons() {
   float centerX = mapCenterX;
   float btnY = mapCenterY + 155;
-  float btnW = 75, btnH = 38, gap = 10;
+  float btnW = 60, btnH = 38, gap = 8;
   
   // Disabilita pulsanti se rotatore è OFF
   boolean rotatorEnabled = systemOn && rotatorPowerOn;
   
-  drawMomentaryButton("◄ CCW", centerX - btnW - gap/2 - btnW/2, btnY, btnW, btnH, 20, ccwButtonPressed, theme.ccwColor, rotatorEnabled);
-  drawBrakeButton("BRAKE", centerX - btnW/2, btnY, btnW, btnH, 21, rotatorEnabled);
-  drawMomentaryButton("CW ►", centerX + gap/2 + btnW/2, btnY, btnW, btnH, 22, cwButtonPressed, theme.cwColor, rotatorEnabled);
+  // 4 buttons: CCW | HALT | BRAKE | CW
+  float totalWidth = btnW * 4 + gap * 3;
+  float startX = centerX - totalWidth / 2;
+  
+  drawMomentaryButton("◄ CCW", startX, btnY, btnW, btnH, 20, ccwButtonPressed, theme.ccwColor, rotatorEnabled);
+  drawHaltButton("HALT", startX + btnW + gap, btnY, btnW, btnH, 23, rotatorEnabled);
+  drawBrakeButton("BRAKE", startX + (btnW + gap) * 2, btnY, btnW, btnH, 21, rotatorEnabled);
+  drawMomentaryButton("CW ►", startX + (btnW + gap) * 3, btnY, btnW, btnH, 22, cwButtonPressed, theme.cwColor, rotatorEnabled);
+  
+  // Draw HALT GOTO button if goto is active
+  if (goToActive) {
+    drawHaltGotoButton(centerX, btnY + btnH + 15, btnW * 2 + gap, btnH);
+  }
+  
+  // Draw brake delay slider
+  drawBrakeDelaySlider(centerX, btnY + btnH + (goToActive ? 70 : 55));
 }
 
 void drawMomentaryButton(String label, float x, float y, float w, float h, int idx, boolean pressed, color activeColor, boolean enabled) {
@@ -867,6 +887,170 @@ void drawBrakeButton(String label, float x, float y, float w, float h, int idx, 
   text("RELEASE", x + w/2, y + h/2 + 8);
   
   popMatrix();
+}
+
+void drawHaltButton(String label, float x, float y, float w, float h, int idx, boolean enabled) {
+  boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
+  buttonHover[idx] = hover;
+  
+  float animValue = easeOutCubic(buttonAnim[idx]);
+  
+  pushMatrix();
+  if (hover) translate(0, -3 * animValue);
+  
+  // Enhanced shadow
+  fill(0, 0, 0, 60 + 60 * animValue);
+  noStroke();
+  rect(x + 2, y + 3, w, h, 8);
+  
+  // Background
+  color bgColor = !enabled ? theme.disabled : theme.haltColor;
+  fill(bgColor);
+  noStroke();
+  rect(x, y, w, h, 8);
+  
+  if (enabled) {
+    // Use clipping to keep stripes within rounded rectangle
+    pushMatrix();
+    // Create clipping by drawing stripes only within bounds
+    for (float stripeOffset = -h; stripeOffset < w + h; stripeOffset += 8) {
+      // Calculate stripe line endpoints
+      float x1 = x + stripeOffset;
+      float y1 = y;
+      float x2 = x + stripeOffset + h;
+      float y2 = y + h;
+      
+      // Clip stripe to rounded rectangle bounds
+      stroke(color(180, 0, 0), 120);
+      strokeWeight(2);
+      
+      // Manual clipping to stay within button bounds
+      if (x1 < x) {
+        float ratio = (x - x1) / (x2 - x1);
+        y1 = y1 + ratio * (y2 - y1);
+        x1 = x;
+      }
+      if (x2 > x + w) {
+        float ratio = (x + w - x1) / (x2 - x1);
+        y2 = y1 + ratio * (y2 - y1);
+        x2 = x + w;
+      }
+      if (y1 < y) y1 = y;
+      if (y2 > y + h) y2 = y + h;
+      
+      // Only draw if line is within bounds
+      if (x1 >= x && x2 <= x + w && y1 >= y && y2 <= y + h) {
+        line(x1, y1, x2, y2);
+      }
+    }
+    popMatrix();
+  }
+  
+  // Border
+  noFill();
+  stroke(theme.haltColor);
+  strokeWeight(hover ? 2 : 1);
+  rect(x, y, w, h, 8);
+  
+  // Glow effect on hover
+  if (hover && enabled) {
+    noFill();
+    stroke(theme.haltColor, 100 * animValue);
+    strokeWeight(2);
+    rect(x - 1, y - 1, w + 2, h + 2, 9);
+    stroke(theme.haltColor, 50 * animValue);
+    strokeWeight(4);
+    rect(x - 3, y - 3, w + 6, h + 6, 11);
+  }
+  
+  fill(enabled ? theme.text : theme.textDim);
+  textFont(fontBold);
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text(label, x + w/2, y + h/2);
+  
+  popMatrix();
+}
+
+void drawHaltGotoButton(float x, float y, float w, float h) {
+  // Blinking effect
+  float blinkAlpha = 150 + 105 * sin(millis() * 0.008);
+  
+  // Shadow
+  fill(0, 0, 0, 80);
+  noStroke();
+  rect(x - w/2 + 2, y + 3, w, h, 8);
+  
+  // Background
+  fill(theme.haltColor, blinkAlpha);
+  stroke(theme.haltColor);
+  strokeWeight(2);
+  rect(x - w/2, y, w, h, 8);
+  
+  // Text
+  fill(theme.text);
+  textFont(fontBold);
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text("HALT GOTO", x, y + h/2 - 6);
+  textSize(8);
+  text("Target: " + nf(goToTarget, 1, 0) + "°", x, y + h/2 + 6);
+}
+
+void drawBrakeDelaySlider(float x, float y) {
+  float sliderW = 200;
+  float sliderH = 4;
+  float knobSize = 14;
+  float sliderX = x - sliderW / 2;
+  
+  // Label
+  fill(theme.textDim);
+  textFont(fontRegular);
+  textSize(9);
+  textAlign(CENTER, TOP);
+  text("Brake Delay", x, y - 18);
+  
+  // Slider track
+  fill(theme.secondary);
+  stroke(theme.border);
+  strokeWeight(1);
+  rect(sliderX, y, sliderW, sliderH, 2);
+  
+  // Tick marks
+  stroke(theme.border);
+  int[] tickValues = {100, 500, 1000, 1500, 2000, 2500, 3000};
+  for (int i = 0; i < tickValues.length; i++) {
+    float tickX = map(tickValues[i], brakeDelayMin, brakeDelayMax, sliderX, sliderX + sliderW);
+    line(tickX, y + sliderH + 2, tickX, y + sliderH + 6);
+  }
+  
+  // Knob position
+  float knobX = map(brakeDelayMs, brakeDelayMin, brakeDelayMax, sliderX, sliderX + sliderW);
+  boolean hoverKnob = dist(mouseX, mouseY, knobX, y + sliderH/2) < knobSize;
+  
+  // Knob
+  if (hoverKnob || brakeSliderDragging) {
+    fill(theme.accent, 60);
+    noStroke();
+    ellipse(knobX, y + sliderH/2, knobSize + 8, knobSize + 8);
+  }
+  
+  fill(brakeSliderDragging ? theme.accent : theme.text);
+  stroke(theme.accent);
+  strokeWeight(2);
+  ellipse(knobX, y + sliderH/2, knobSize, knobSize);
+  
+  // Value display
+  fill(theme.text);
+  textFont(fontBold);
+  textSize(10);
+  textAlign(CENTER, TOP);
+  text(brakeDelayMs + " ms", x, y + 15);
+  
+  // Brake state text
+  fill(brakeReleased ? theme.success : theme.warning);
+  textSize(8);
+  text(brakeReleased ? "BRAKE FREE" : "BRAKE ON", x, y + 28);
 }
 
 void drawStatusBar() {
@@ -1298,7 +1482,7 @@ void drawSystemSettings(float px, float py) {
   textAlign(LEFT, TOP);
   text("Versione: " + APP_VERSION, px + 30, btnY + 55);
   text("Relè antenne: Pin 4-9", px + 30, btnY + 70);
-  text("Relè rotatore: CW=A0, CCW=A1, PWR=A3", px + 30, btnY + 85);
+  text("Relè rotatore: CW=Pin 3, CCW=Pin 4, BRK=Pin 5, PWR=Pin 7", px + 30, btnY + 85);
   text("LED: CW=Pin16, CCW=Pin10 (40% PWM)", px + 30, btnY + 100);
 }
 
@@ -1552,6 +1736,44 @@ void mouseReleased() {
   if (cwButtonPressed || ccwButtonPressed) {
     deactivateRotatorRelays();
   }
+  
+  // Release brake button
+  if (brakeButtonPressed) {
+    releaseBrake();
+  }
+  
+  // Stop slider dragging
+  if (brakeSliderDragging) {
+    brakeSliderDragging = false;
+  }
+}
+
+void mouseDragged() {
+  // Handle brake delay slider dragging
+  float centerX = mapCenterX;
+  float btnY = mapCenterY + 155;
+  float btnH = 38;
+  float sliderY = btnY + btnH + (goToActive ? 70 : 55);
+  float sliderW = 200;
+  float sliderH = 4;
+  float sliderX = centerX - sliderW / 2;
+  
+  // Check if mouse started on the knob
+  float knobX = map(brakeDelayMs, brakeDelayMin, brakeDelayMax, sliderX, sliderX + sliderW);
+  float knobSize = 14;
+  
+  // Start dragging if mouse is near knob
+  if (!brakeSliderDragging && dist(mouseX, mouseY, knobX, sliderY + sliderH/2) < knobSize) {
+    brakeSliderDragging = true;
+  }
+  
+  // Update slider value if dragging
+  if (brakeSliderDragging) {
+    float newValue = map(constrain(mouseX, sliderX, sliderX + sliderW), sliderX, sliderX + sliderW, brakeDelayMin, brakeDelayMax);
+    // Snap to multiples of 50ms
+    brakeDelayMs = int(newValue / 50) * 50;
+    brakeDelayMs = constrain(brakeDelayMs, brakeDelayMin, brakeDelayMax);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1652,36 +1874,74 @@ void checkRotatorButtonsPressed() {
   
   float centerX = mapCenterX;
   float btnY = mapCenterY + 155;
-  float btnW = 75, gap = 10;
+  float btnW = 60, btnH = 38, gap = 8;
+  
+  float totalWidth = btnW * 4 + gap * 3;
+  float startX = centerX - totalWidth / 2;
   
   // CCW
-  float ccwX = centerX - btnW - gap/2 - btnW/2;
-  if (mouseX > ccwX && mouseX < ccwX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+  if (mouseX > startX && mouseX < startX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
     activateCCWRelay();
     return;
   }
   
-  // BRAKE RELEASE
-  float brakeX = centerX - btnW/2;
-  if (mouseX > brakeX && mouseX < brakeX + btnW && mouseY > btnY && mouseY < btnY + 38) {
-    toggleBrakeRelease();
+  // HALT
+  float haltX = startX + btnW + gap;
+  if (mouseX > haltX && mouseX < haltX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+    emergencyHalt();
+    return;
+  }
+  
+  // BRAKE (momentary)
+  float brakeX = startX + (btnW + gap) * 2;
+  if (mouseX > brakeX && mouseX < brakeX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+    activateBrake();
     return;
   }
   
   // CW
-  float cwX = centerX + gap/2 + btnW/2;
-  if (mouseX > cwX && mouseX < cwX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+  float cwX = startX + (btnW + gap) * 3;
+  if (mouseX > cwX && mouseX < cwX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
     activateCWRelay();
     return;
   }
+  
+  // HALT GOTO button
+  if (goToActive) {
+    float haltGotoW = btnW * 2 + gap;
+    float haltGotoX = centerX - haltGotoW / 2;
+    float haltGotoY = btnY + btnH + 15;
+    if (mouseX > haltGotoX && mouseX < haltGotoX + haltGotoW && mouseY > haltGotoY && mouseY < haltGotoY + btnH) {
+      goToActive = false;
+      goToTarget = -1;
+      sendRotatorCommand("GOTO:HALT");
+      deactivateRotatorRelays();
+      addNotification("GOTO aborted", WARNING);
+      return;
+    }
+  }
 }
 
-void toggleBrakeRelease() {
-  brakeReleased = !brakeReleased;
-  
-  addDebugLog("Brake: " + (brakeReleased ? "RELEASED" : "ENGAGED"));
-  sendRotatorCommand("BRAKE:" + (brakeReleased ? "1" : "0"));
-  addNotification("Brake " + (brakeReleased ? "Released" : "Engaged"), brakeReleased ? SUCCESS : WARNING);
+void activateBrake() {
+  if (!brakeButtonPressed && systemOn && rotatorPowerOn) {
+    brakeButtonPressed = true;
+    brakeReleased = true;
+    
+    addDebugLog("Brake: Premuto → RELEASED");
+    sendRotatorCommand("BRAKE:1");
+    addNotification("Brake Released", SUCCESS);
+  }
+}
+
+void releaseBrake() {
+  if (brakeButtonPressed) {
+    brakeButtonPressed = false;
+    brakeReleased = false;
+    
+    addDebugLog("Brake: Rilasciato → ENGAGED with delay " + brakeDelayMs + "ms");
+    sendRotatorCommand("BRAKE:0:" + brakeDelayMs);
+    addNotification("Brake Engaged", WARNING);
+  }
 }
 
 void checkAzimuthDialClick() {
@@ -1703,6 +1963,7 @@ void checkAzimuthDialClick() {
     // Set target azimuth
     targetAzimuth = degrees;
     goToActive = true;
+    goToTarget = degrees;
     
     // Auto-activate brake release for Go To
     if (!brakeReleased) {
@@ -1723,13 +1984,21 @@ void emergencyHalt() {
   ccwButtonPressed = false;
   rotatorCW = false;
   rotatorCCW = false;
+  brakeButtonPressed = false;
   brakeReleased = false;
   
   addDebugLog("!!! EMERGENCY HALT !!!");
   sendRotatorCommand("CW:0");
   sendRotatorCommand("CCW:0");
-  sendRotatorCommand("BRAKE:0");
+  sendRotatorCommand("BRAKE:0:0");  // Immediate brake engagement (0ms delay) for safety
   sendRotatorCommand("HALT:1");
+  
+  if (goToActive) {
+    goToActive = false;
+    goToTarget = -1;
+    sendRotatorCommand("GOTO:HALT");
+  }
+  
   addNotification("EMERGENCY HALT!", ERROR);
 }
 
@@ -2012,6 +2281,8 @@ void checkTopBarClick() {
       emergencyHalt();
       rotatorPowerOn = false;
       selectedAntenna = -1;
+      brakeButtonPressed = false;
+      brakeReleased = false;
       for (int i = 0; i < 6; i++) antennaStates[i] = false;
     }
     
@@ -2087,6 +2358,7 @@ void keyPressed() {
   if (key == 'r' || key == 'R') { scanSerialPorts(); addNotification("Porte scansionate", INFO); }
   if (key == 'd' || key == 'D') { debugMode = !debugMode; }
   if (key == 'p' || key == 'P') { if (systemOn) toggleRotatorPower(); }
+  if (key == 'b' || key == 'B') { if (systemOn && rotatorPowerOn) activateBrake(); }
   if (systemOn && key >= '1' && key <= '6') { selectAntenna(key - '1'); }
   if (key == ESC) { if (currentScreen != 0) { targetScreen = 0; transitioning = true; screenTransition = 0; } key = 0; }
 }
@@ -2382,6 +2654,7 @@ void processRotatorData(String data) {
         if (diff < 2.0) {
           goToActive = false;
           targetAzimuth = -1;
+          goToTarget = -1;
           addDebugLog("GOTO: Target raggiunto!");
           addNotification("Target raggiunto!", SUCCESS);
         }
@@ -2399,8 +2672,23 @@ void processRotatorData(String data) {
   else if (data.startsWith("ROTATOR_PWR:")) {
     rotatorPowerOn = data.substring(12).equals("ON");
   }
+  else if (data.startsWith("GOTO:DONE")) {
+    goToActive = false;
+    goToTarget = -1;
+    addNotification("GOTO completato!", SUCCESS);
+  }
+  else if (data.startsWith("STATUS:") && (data.contains("stopped") || data.contains("halt") || data.contains("timeout"))) {
+    rotatorCW = false;
+    rotatorCCW = false;
+    cwButtonPressed = false;
+    ccwButtonPressed = false;
+    if (goToActive) {
+      goToActive = false;
+      goToTarget = -1;
+    }
+  }
   else if (data.startsWith("STATUS:")) {
-    // Handle status updates from rotator ESP32
+    // Handle other status updates from rotator ESP32
   }
 }
 
