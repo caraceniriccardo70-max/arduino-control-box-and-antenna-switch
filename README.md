@@ -272,6 +272,8 @@ boolean rotatorCCW = false;
 boolean cwButtonPressed = false;
 boolean ccwButtonPressed = false;
 boolean brakeReleased = false;  // Brake release state
+float targetAzimuth = -1;  // -1 = nessun target
+boolean goToActive = false;
 float currentAzimuth = 0;
 float displayAzimuth = 0;
 float mapCenterX, mapCenterY;
@@ -663,6 +665,30 @@ void drawAzimuthMap() {
     endShape(CLOSE);
   }
   
+  // Draw target azimuth if Go To is active
+  if (targetAzimuth >= 0) {
+    float targetAngle = radians(targetAzimuth - 90);
+    
+    // Draw dashed target line
+    stroke(theme.warning, 180);
+    strokeWeight(2);
+    float dashLen = 8, gapLen = 6;
+    for (float r = 25; r < mapRadius; r += dashLen + gapLen) {
+      float r1 = r;
+      float r2 = min(r + dashLen, mapRadius);
+      line(cos(targetAngle) * r1, sin(targetAngle) * r1, cos(targetAngle) * r2, sin(targetAngle) * r2);
+    }
+    
+    // Draw target marker (triangle)
+    pushMatrix();
+    translate(cos(targetAngle) * (mapRadius - 8), sin(targetAngle) * (mapRadius - 8));
+    rotate(targetAngle + HALF_PI);
+    fill(theme.warning, 200);
+    noStroke();
+    triangle(-6, -8, 6, -8, 0, 0);
+    popMatrix();
+  }
+  
   float needleAngle = radians(displayAzimuth - 90);
   
   stroke(0, 0, 0, 80);
@@ -712,6 +738,13 @@ void drawAzimuthMap() {
   else if (rotatorCW) status = "→ CW";
   else if (rotatorCCW) status = "← CCW";
   text(status, 0, 12);
+  
+  // Display target azimuth if Go To is active
+  if (targetAzimuth >= 0) {
+    fill(theme.warning);
+    textSize(8);
+    text("TARGET: " + nf(targetAzimuth, 1, 1) + "°", 0, 22);
+  }
   
   popMatrix();
 }
@@ -1504,6 +1537,7 @@ void mousePressed() {
     checkAntennaClick();
     checkRotatorPowerClick();
     checkRotatorButtonsPressed();
+    checkAzimuthDialClick();
   } else if (currentScreen == 1) {
     checkSettingsClick();
   } else if (currentScreen == 2) {
@@ -1648,6 +1682,40 @@ void toggleBrakeRelease() {
   addDebugLog("Brake: " + (brakeReleased ? "RELEASED" : "ENGAGED"));
   sendRotatorCommand("BRAKE:" + (brakeReleased ? "1" : "0"));
   addNotification("Brake " + (brakeReleased ? "Released" : "Engaged"), brakeReleased ? SUCCESS : WARNING);
+}
+
+void checkAzimuthDialClick() {
+  if (!systemOn || !rotatorPowerOn) return;
+  
+  // Check if click is inside the azimuth dial circle
+  float dx = mouseX - mapCenterX;
+  float dy = mouseY - mapCenterY;
+  float distance = sqrt(dx * dx + dy * dy);
+  
+  // Only respond to clicks within the outer ring (outside center circle)
+  if (distance > 35 && distance < mapRadius) {
+    // Calculate angle from click position
+    float clickAngle = atan2(dy, dx);
+    float degrees = degrees(clickAngle) + 90;
+    if (degrees < 0) degrees += 360;
+    if (degrees >= 360) degrees -= 360;
+    
+    // Set target azimuth
+    targetAzimuth = degrees;
+    goToActive = true;
+    
+    // Auto-activate brake release for Go To
+    if (!brakeReleased) {
+      brakeReleased = true;
+      sendRotatorCommand("BRAKE:1");
+      addDebugLog("Brake: Auto-released for GOTO");
+    }
+    
+    // Send GOTO command
+    sendRotatorCommand("GOTO:" + nf(targetAzimuth, 1, 1));
+    addDebugLog("GOTO: Target set to " + nf(targetAzimuth, 1, 1) + "°");
+    addNotification("Target: " + nf(targetAzimuth, 1, 1) + "°", SUCCESS);
+  }
 }
 
 void emergencyHalt() {
@@ -2302,10 +2370,26 @@ void processRotatorData(String data) {
   addDebugLog("RX ROT: " + data);
   
   if (data.startsWith("AZI:")) {
-    try { currentAzimuth = Float.parseFloat(data.substring(4)); } catch (Exception e) {}
+    try { 
+      currentAzimuth = Float.parseFloat(data.substring(4));
+      
+      // Check if Go To target is reached
+      if (goToActive && targetAzimuth >= 0) {
+        float diff = abs(currentAzimuth - targetAzimuth);
+        // Handle wrap-around (e.g., 359° to 1°)
+        if (diff > 180) diff = 360 - diff;
+        
+        if (diff < 2.0) {
+          goToActive = false;
+          targetAzimuth = -1;
+          addDebugLog("GOTO: Target raggiunto!");
+          addNotification("Target raggiunto!", SUCCESS);
+        }
+      }
+    } catch (Exception e) {}
   }
   else if (data.startsWith("ROTATOR:")) {
-    String status = data.substring(6);
+    String status = data.substring(8);
     if (status.equals("CW")) { rotatorCW = true; rotatorCCW = false; }
     else if (status.equals("CCW")) { rotatorCW = false; rotatorCCW = true; }
     else { rotatorCW = false; rotatorCCW = false; cwButtonPressed = false; ccwButtonPressed = false; }
