@@ -1041,12 +1041,19 @@ void drawConnectionSettings(float px, float py) {
       }
     }
   } else {
-    // WiFi Mode - Show IP and Port
-    fill(theme.text);
+    // WiFi Mode - Show IP and Port as editable fields
+    fill(theme.textDim);
     textFont(fontRegular);
-    textSize(10);
+    textSize(9);
     textAlign(LEFT, CENTER);
-    text("IP: " + antWifiIP + ":" + antWifiPort, px + 30, configY);
+    text("IP:", px + 30, configY - 10);
+    text("Porta:", px + 200, configY - 10);
+    
+    // IP field
+    drawTextField(px + 30, configY, 150, 26, 20, antWifiIP, "192.168.1.100");
+    
+    // Port field
+    drawTextField(px + 200, configY, 80, 26, 21, str(antWifiPort), "8080");
   }
   
   // Connect/Disconnect Button
@@ -1130,12 +1137,19 @@ void drawConnectionSettings(float px, float py) {
       }
     }
   } else {
-    // WiFi Mode
-    fill(theme.text);
+    // WiFi Mode - Show IP and Port as editable fields
+    fill(theme.textDim);
     textFont(fontRegular);
-    textSize(10);
+    textSize(9);
     textAlign(LEFT, CENTER);
-    text("IP: " + rotWifiIP + ":" + rotWifiPort, px + 30, rotConfigY);
+    text("IP:", px + 30, rotConfigY - 10);
+    text("Porta:", px + 200, rotConfigY - 10);
+    
+    // IP field
+    drawTextField(px + 30, rotConfigY, 150, 26, 22, rotWifiIP, "192.168.1.101");
+    
+    // Port field
+    drawTextField(px + 200, rotConfigY, 80, 26, 23, str(rotWifiPort), "8081");
   }
   
   // Connect/Disconnect Button
@@ -1743,6 +1757,25 @@ void checkConnectionSettingsClick(float px, float py) {
     }
   }
   
+  // ANT WiFi IP/Port editing (WiFi mode)
+  if (antConnMode == 1) {
+    float configY = toggleY + 35;
+    
+    // IP field click
+    if (mouseX > px + 30 && mouseX < px + 180 && mouseY > configY && mouseY < configY + 26) {
+      editingField = 20;
+      inputBuffer = antWifiIP;
+      return;
+    }
+    
+    // Port field click
+    if (mouseX > px + 200 && mouseX < px + 280 && mouseY > configY && mouseY < configY + 26) {
+      editingField = 21;
+      inputBuffer = str(antWifiPort);
+      return;
+    }
+  }
+  
   // ANT Connect/Disconnect
   float configY = toggleY + 35;
   float antBtnY = configY + 30;
@@ -1780,6 +1813,25 @@ void checkConnectionSettingsClick(float px, float py) {
         addDebugLog("ESP32 Rotatore porta: " + rotComPort);
         return;
       }
+    }
+  }
+  
+  // ROT WiFi IP/Port editing (WiFi mode)
+  if (rotConnMode == 1) {
+    float rotConfigY = rotToggleY + 35;
+    
+    // IP field click
+    if (mouseX > px + 30 && mouseX < px + 180 && mouseY > rotConfigY && mouseY < rotConfigY + 26) {
+      editingField = 22;
+      inputBuffer = rotWifiIP;
+      return;
+    }
+    
+    // Port field click
+    if (mouseX > px + 200 && mouseX < px + 280 && mouseY > rotConfigY && mouseY < rotConfigY + 26) {
+      editingField = 23;
+      inputBuffer = str(rotWifiPort);
+      return;
     }
   }
   
@@ -1898,6 +1950,22 @@ void keyPressed() {
       } else if (editingField >= 10 && editingField < 16 && key >= '0' && key <= '9' && inputBuffer.length() < 2) {
         inputBuffer += key;
         tempAntennaPins[editingField - 10] = int(inputBuffer);
+      } else if (editingField == 20 && inputBuffer.length() < 15) {
+        // antWifiIP
+        inputBuffer += key;
+        antWifiIP = inputBuffer;
+      } else if (editingField == 21 && key >= '0' && key <= '9' && inputBuffer.length() < 5) {
+        // antWifiPort
+        inputBuffer += key;
+        antWifiPort = int(inputBuffer);
+      } else if (editingField == 22 && inputBuffer.length() < 15) {
+        // rotWifiIP
+        inputBuffer += key;
+        rotWifiIP = inputBuffer;
+      } else if (editingField == 23 && key >= '0' && key <= '9' && inputBuffer.length() < 5) {
+        // rotWifiPort
+        inputBuffer += key;
+        rotWifiPort = int(inputBuffer);
       }
     }
     return;
@@ -1916,6 +1984,14 @@ void updateFieldFromBuffer() {
     tempAntennaNames[editingField] = inputBuffer;
   } else if (editingField >= 10 && editingField < 16 && inputBuffer.length() > 0) {
     tempAntennaPins[editingField - 10] = int(inputBuffer);
+  } else if (editingField == 20) {
+    antWifiIP = inputBuffer;
+  } else if (editingField == 21 && inputBuffer.length() > 0) {
+    antWifiPort = int(inputBuffer);
+  } else if (editingField == 22) {
+    rotWifiIP = inputBuffer;
+  } else if (editingField == 23 && inputBuffer.length() > 0) {
+    rotWifiPort = int(inputBuffer);
   }
 }
 
