@@ -516,7 +516,7 @@ void drawAntennaPanel() {
 }
 
 void drawAntennaButton(int idx, float x, float y, float w, float h) {
-  boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && systemOn;
+  boolean hover = getScaledMouseX() > x && getScaledMouseX() < x + w && getScaledMouseY() > y && getScaledMouseY() < y + h && systemOn;
   buttonHover[idx] = hover;
   boolean selected = (selectedAntenna == idx);
   boolean active = antennaStates[idx];
@@ -606,7 +606,7 @@ void drawRotatorPanel() {
 void drawRotatorPowerSwitch(float x, float y) {
   float w = 120, h = 30;
   
-  boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && systemOn;
+  boolean hover = getScaledMouseX() > x && getScaledMouseX() < x + w && getScaledMouseY() > y && getScaledMouseY() < y + h && systemOn;
   buttonHover[27] = hover;
   
   // Background
@@ -793,7 +793,7 @@ void drawRotatorButtons() {
 }
 
 void drawMomentaryButton(String label, float x, float y, float w, float h, int idx, boolean pressed, color activeColor, boolean enabled) {
-  boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
+  boolean hover = getScaledMouseX() > x && getScaledMouseX() < x + w && getScaledMouseY() > y && getScaledMouseY() < y + h && enabled;
   buttonHover[idx] = hover;
   
   float animValue = easeOutCubic(buttonAnim[idx]);
@@ -841,7 +841,7 @@ void drawMomentaryButton(String label, float x, float y, float w, float h, int i
 }
 
 void drawBrakeButton(String label, float x, float y, float w, float h, int idx, boolean enabled) {
-  boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h && enabled;
+  boolean hover = getScaledMouseX() > x && getScaledMouseX() < x + w && getScaledMouseY() > y && getScaledMouseY() < y + h && enabled;
   buttonHover[idx] = hover;
   
   float animValue = easeOutCubic(buttonAnim[idx]);
@@ -975,7 +975,7 @@ void drawSettingsTabs(float x, float y) {
   
   for (int i = 0; i < tabs.length; i++) {
     float tx = x + i * (tabW + gap);
-    boolean hover = mouseX > tx && mouseX < tx + tabW && mouseY > y && mouseY < y + tabH;
+    boolean hover = getScaledMouseX() > tx && getScaledMouseX() < tx + tabW && getScaledMouseY() > y && getScaledMouseY() < y + tabH;
     boolean active = (currentSettingsTab == i);
     
     fill(active ? theme.accent : hover ? theme.hover : theme.secondary);
@@ -1020,7 +1020,7 @@ void drawAntennaSettings(float px, float py) {
 
 void drawTextField(float x, float y, float w, float h, int idx, String value, String placeholder) {
   boolean editing = (editingField == idx);
-  boolean hover = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h;
+  boolean hover = getScaledMouseX() > x && getScaledMouseX() < x + w && getScaledMouseY() > y && getScaledMouseY() < y + h;
   
   fill(editing ? theme.panelLight : hover ? theme.hover : theme.panel);
   stroke(editing ? theme.accent : theme.border);
@@ -1047,7 +1047,7 @@ void drawTextField(float x, float y, float w, float h, int idx, String value, St
 
 void drawCheckbox(float x, float y, boolean checked, int idx) {
   float size = 18;
-  boolean hover = mouseX > x && mouseX < x + size && mouseY > y && mouseY < y + size;
+  boolean hover = getScaledMouseX() > x && getScaledMouseX() < x + size && getScaledMouseY() > y && getScaledMouseY() < y + size;
   
   fill(checked ? theme.accent : hover ? theme.hover : theme.panel);
   stroke(checked ? theme.accent : theme.border);
@@ -1075,8 +1075,8 @@ void drawConnectionSettings(float px, float py) {
   float toggleY = py + 25;
   float toggleW = 60, toggleH = 25, toggleGap = 10;
   
-  boolean usbHover = mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > toggleY && mouseY < toggleY + toggleH;
-  boolean wifiHover = mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > toggleY && mouseY < toggleY + toggleH;
+  boolean usbHover = getScaledMouseX() > px + 30 && getScaledMouseX() < px + 30 + toggleW && getScaledMouseY() > toggleY && getScaledMouseY() < toggleY + toggleH;
+  boolean wifiHover = getScaledMouseX() > px + 30 + toggleW + toggleGap && getScaledMouseX() < px + 30 + toggleW * 2 + toggleGap && getScaledMouseY() > toggleY && getScaledMouseY() < toggleY + toggleH;
   
   fill(antConnMode == 0 ? theme.accent : (usbHover ? theme.hover : theme.secondary));
   stroke(antConnMode == 0 ? theme.accent : theme.border);
@@ -1111,7 +1111,7 @@ void drawConnectionSettings(float px, float py) {
       for (int i = 0; i < min(availablePorts.length, 4); i++) {
         float pbx = px + 120 + i * (portBtnW + 5);
         boolean portSelected = availablePorts[i].equals(antComPort);
-        boolean portHover = mouseX > pbx && mouseX < pbx + portBtnW && mouseY > configY - 11 && mouseY < configY + 11;
+        boolean portHover = getScaledMouseX() > pbx && getScaledMouseX() < pbx + portBtnW && getScaledMouseY() > configY - 11 && getScaledMouseY() < configY + 11;
         
         fill(portSelected ? theme.accent : (portHover ? theme.hover : theme.secondary));
         stroke(portSelected ? theme.accent : theme.border);
@@ -1143,7 +1143,7 @@ void drawConnectionSettings(float px, float py) {
   float antBtnY = configY + 30;
   color antConnColor = antConnected ? theme.error : theme.success;
   String antConnText = antConnected ? "DISCONNETTI" : "CONNETTI";
-  boolean antConnHover = mouseX > px + 30 && mouseX < px + 150 && mouseY > antBtnY && mouseY < antBtnY + 32;
+  boolean antConnHover = getScaledMouseX() > px + 30 && getScaledMouseX() < px + 150 && getScaledMouseY() > antBtnY && getScaledMouseY() < antBtnY + 32;
   
   fill(antConnHover ? lerpColor(antConnColor, theme.text, 0.2) : antConnColor);
   stroke(antConnColor);
@@ -1172,8 +1172,8 @@ void drawConnectionSettings(float px, float py) {
   // WiFi/USB Toggle
   float rotToggleY = rotY + 25;
   
-  boolean rotUsbHover = mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > rotToggleY && mouseY < rotToggleY + toggleH;
-  boolean rotWifiHover = mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > rotToggleY && mouseY < rotToggleY + toggleH;
+  boolean rotUsbHover = getScaledMouseX() > px + 30 && getScaledMouseX() < px + 30 + toggleW && getScaledMouseY() > rotToggleY && getScaledMouseY() < rotToggleY + toggleH;
+  boolean rotWifiHover = getScaledMouseX() > px + 30 + toggleW + toggleGap && getScaledMouseX() < px + 30 + toggleW * 2 + toggleGap && getScaledMouseY() > rotToggleY && getScaledMouseY() < rotToggleY + toggleH;
   
   fill(rotConnMode == 0 ? theme.accent : (rotUsbHover ? theme.hover : theme.secondary));
   stroke(rotConnMode == 0 ? theme.accent : theme.border);
@@ -1207,7 +1207,7 @@ void drawConnectionSettings(float px, float py) {
       for (int i = 0; i < min(availablePorts.length, 4); i++) {
         float pbx = px + 120 + i * (portBtnW + 5);
         boolean portSelected = availablePorts[i].equals(rotComPort);
-        boolean portHover = mouseX > pbx && mouseX < pbx + portBtnW && mouseY > rotConfigY - 11 && mouseY < rotConfigY + 11;
+        boolean portHover = getScaledMouseX() > pbx && getScaledMouseX() < pbx + portBtnW && getScaledMouseY() > rotConfigY - 11 && getScaledMouseY() < rotConfigY + 11;
         
         fill(portSelected ? theme.accent : (portHover ? theme.hover : theme.secondary));
         stroke(portSelected ? theme.accent : theme.border);
@@ -1239,7 +1239,7 @@ void drawConnectionSettings(float px, float py) {
   float rotBtnY = rotConfigY + 30;
   color rotConnColor = rotConnected ? theme.error : theme.success;
   String rotConnText = rotConnected ? "DISCONNETTI" : "CONNETTI";
-  boolean rotConnHover = mouseX > px + 30 && mouseX < px + 150 && mouseY > rotBtnY && mouseY < rotBtnY + 32;
+  boolean rotConnHover = getScaledMouseX() > px + 30 && getScaledMouseX() < px + 150 && getScaledMouseY() > rotBtnY && getScaledMouseY() < rotBtnY + 32;
   
   fill(rotConnHover ? lerpColor(rotConnColor, theme.text, 0.2) : rotConnColor);
   stroke(rotConnColor);
@@ -1283,7 +1283,7 @@ void drawConnectionSettings(float px, float py) {
   
   // Scan Ports Button
   float scanBtnY = autoY + 30;
-  boolean scanHover = mouseX > px + 30 && mouseX < px + 130 && mouseY > scanBtnY && mouseY < scanBtnY + 28;
+  boolean scanHover = getScaledMouseX() > px + 30 && getScaledMouseX() < px + 130 && getScaledMouseY() > scanBtnY && getScaledMouseY() < scanBtnY + 28;
   fill(scanHover ? lerpColor(theme.warning, theme.text, 0.2) : theme.warning);
   stroke(theme.warning);
   rect(px + 30, scanBtnY, 100, 28, 6);
@@ -1310,7 +1310,7 @@ void drawSystemSettings(float px, float py) {
   text("Modalità Debug", px + 55, py + 49);
   
   float btnY = py + 90;
-  boolean resetHover = mouseX > px + 30 && mouseX < px + 150 && mouseY > btnY && mouseY < btnY + 35;
+  boolean resetHover = getScaledMouseX() > px + 30 && getScaledMouseX() < px + 150 && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 35;
   
   fill(resetHover ? lerpColor(theme.warning, theme.text, 0.2) : theme.warning);
   stroke(theme.warning);
@@ -1336,7 +1336,7 @@ void drawSettingsButtons(float px, float py) {
   float btnW = 100, btnH = 35;
   float centerX = px + 360;
   
-  boolean saveHover = mouseX > centerX - btnW - 10 && mouseX < centerX - 10 && mouseY > py && mouseY < py + btnH;
+  boolean saveHover = getScaledMouseX() > centerX - btnW - 10 && getScaledMouseX() < centerX - 10 && getScaledMouseY() > py && getScaledMouseY() < py + btnH;
   fill(saveHover ? lerpColor(theme.success, theme.text, 0.2) : theme.success);
   stroke(theme.success);
   rect(centerX - btnW - 10, py, btnW, btnH, 8);
@@ -1347,7 +1347,7 @@ void drawSettingsButtons(float px, float py) {
   textAlign(CENTER, CENTER);
   text("SALVA", centerX - btnW/2 - 10, py + btnH/2);
   
-  boolean cancelHover = mouseX > centerX + 10 && mouseX < centerX + btnW + 10 && mouseY > py && mouseY < py + btnH;
+  boolean cancelHover = getScaledMouseX() > centerX + 10 && getScaledMouseX() < centerX + btnW + 10 && getScaledMouseY() > py && getScaledMouseY() < py + btnH;
   fill(cancelHover ? lerpColor(theme.warning, theme.text, 0.2) : theme.warning);
   stroke(theme.warning);
   rect(centerX + 10, py, btnW, btnH, 8);
@@ -1387,7 +1387,7 @@ void drawDebugScreen() {
   }
   
   float btnX = px + pw - 90, btnY = py + ph - 40;
-  boolean clearHover = mouseX > btnX && mouseX < btnX + 70 && mouseY > btnY && mouseY < btnY + 28;
+  boolean clearHover = getScaledMouseX() > btnX && getScaledMouseX() < btnX + 70 && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 28;
   
   fill(clearHover ? lerpColor(theme.warning, theme.text, 0.2) : theme.warning);
   stroke(theme.warning);
@@ -1521,7 +1521,7 @@ void drawNavigationBar() {
   
   for (int i = 0; i < items.length; i++) {
     float ix = startX + i * (itemW + 8);
-    boolean hover = mouseX > ix && mouseX < ix + itemW && mouseY > startY && mouseY < startY + barH;
+    boolean hover = getScaledMouseX() > ix && getScaledMouseX() < ix + itemW && getScaledMouseY() > startY && getScaledMouseY() < startY + barH;
     boolean active = (currentScreen == i);
     
     buttonHover[23 + i] = hover;
@@ -1614,7 +1614,7 @@ void checkRotatorPowerClick() {
   float x = px + 20, y = py + 45;
   float w = 120, h = 30;
   
-  if (mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h) {
+  if (getScaledMouseX() > x && getScaledMouseX() < x + w && getScaledMouseY() > y && getScaledMouseY() < y + h) {
     toggleRotatorPower();
   }
 }
@@ -1705,21 +1705,21 @@ void checkRotatorButtonsPressed() {
   
   // CCW
   float ccwX = centerX - btnW - gap/2 - btnW/2;
-  if (mouseX > ccwX && mouseX < ccwX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+  if (getScaledMouseX() > ccwX && getScaledMouseX() < ccwX + btnW && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 38) {
     activateCCWRelay();
     return;
   }
   
   // BRAKE RELEASE
   float brakeX = centerX - btnW/2;
-  if (mouseX > brakeX && mouseX < brakeX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+  if (getScaledMouseX() > brakeX && getScaledMouseX() < brakeX + btnW && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 38) {
     toggleBrakeRelease();
     return;
   }
   
   // CW
   float cwX = centerX + gap/2 + btnW/2;
-  if (mouseX > cwX && mouseX < cwX + btnW && mouseY > btnY && mouseY < btnY + 38) {
+  if (getScaledMouseX() > cwX && getScaledMouseX() < cwX + btnW && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 38) {
     activateCWRelay();
     return;
   }
@@ -1737,8 +1737,8 @@ void checkAzimuthDialClick() {
   if (!systemOn || !rotatorPowerOn) return;
   
   // Check if click is inside the azimuth dial circle
-  float dx = mouseX - mapCenterX;
-  float dy = mouseY - mapCenterY;
+  float dx = getScaledMouseX() - mapCenterX;
+  float dy = getScaledMouseY() - mapCenterY;
   float distance = sqrt(dx * dx + dy * dy);
   
   // Only respond to clicks within the outer ring (outside center circle)
@@ -1798,7 +1798,7 @@ void checkAntennaClick() {
     float bx = startX + col * (btnW + gapX);
     float by = startY + row * (btnH + gapY);
     
-    if (mouseX > bx && mouseX < bx + btnW && mouseY > by && mouseY < by + btnH) {
+    if (getScaledMouseX() > bx && getScaledMouseX() < bx + btnW && getScaledMouseY() > by && getScaledMouseY() < by + btnH) {
       selectAntenna(i);
       break;
     }
@@ -1833,7 +1833,7 @@ void checkSettingsClick() {
   float tabY = py + 45, tabW = 110, tabH = 32, gap = 10;
   for (int i = 0; i < 3; i++) {
     float tx = px + 20 + i * (tabW + gap);
-    if (mouseX > tx && mouseX < tx + tabW && mouseY > tabY && mouseY < tabY + tabH) {
+    if (getScaledMouseX() > tx && getScaledMouseX() < tx + tabW && getScaledMouseY() > tabY && getScaledMouseY() < tabY + tabH) {
       currentSettingsTab = i;
       editingField = -1;
       return;
@@ -1847,12 +1847,12 @@ void checkSettingsClick() {
   // Salva/Annulla
   float btnY = py + 350, centerX = px + 360, btnW = 100, btnH = 35;
   
-  if (mouseX > centerX - btnW - 10 && mouseX < centerX - 10 && mouseY > btnY && mouseY < btnY + btnH) {
+  if (getScaledMouseX() > centerX - btnW - 10 && getScaledMouseX() < centerX - 10 && getScaledMouseY() > btnY && getScaledMouseY() < btnY + btnH) {
     saveSettings();
     return;
   }
   
-  if (mouseX > centerX + 10 && mouseX < centerX + btnW + 10 && mouseY > btnY && mouseY < btnY + btnH) {
+  if (getScaledMouseX() > centerX + 10 && getScaledMouseX() < centerX + btnW + 10 && getScaledMouseY() > btnY && getScaledMouseY() < btnY + btnH) {
     cancelSettings();
     return;
   }
@@ -1864,19 +1864,19 @@ void checkAntennaSettingsClick(float px, float py) {
   for (int i = 0; i < 6; i++) {
     float rowY = py + 25 + i * rowH;
     
-    if (mouseX > px + 100 && mouseX < px + 100 + fieldW && mouseY > rowY && mouseY < rowY + fieldH) {
+    if (getScaledMouseX() > px + 100 && getScaledMouseX() < px + 100 + fieldW && getScaledMouseY() > rowY && getScaledMouseY() < rowY + fieldH) {
       editingField = i;
       inputBuffer = tempAntennaNames[i];
       return;
     }
     
-    if (mouseX > px + 250 && mouseX < px + 300 && mouseY > rowY && mouseY < rowY + fieldH) {
+    if (getScaledMouseX() > px + 250 && getScaledMouseX() < px + 300 && getScaledMouseY() > rowY && getScaledMouseY() < rowY + fieldH) {
       editingField = i + 10;
       inputBuffer = str(tempAntennaPins[i]);
       return;
     }
     
-    if (mouseX > px + 320 && mouseX < px + 338 && mouseY > rowY + 5 && mouseY < rowY + 23) {
+    if (getScaledMouseX() > px + 320 && getScaledMouseX() < px + 338 && getScaledMouseY() > rowY + 5 && getScaledMouseY() < rowY + 23) {
       tempAntennaDirective[i] = ! tempAntennaDirective[i];
       return;
     }
@@ -1892,13 +1892,13 @@ void checkConnectionSettingsClick(float px, float py) {
   float toggleY = py + 25;
   
   // ANT USB/WiFi toggle
-  if (mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > toggleY && mouseY < toggleY + toggleH) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 30 + toggleW && getScaledMouseY() > toggleY && getScaledMouseY() < toggleY + toggleH) {
     antConnMode = 0;
     addDebugLog("ESP32 Antenna: modo USB");
     return;
   }
   
-  if (mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > toggleY && mouseY < toggleY + toggleH) {
+  if (getScaledMouseX() > px + 30 + toggleW + toggleGap && getScaledMouseX() < px + 30 + toggleW * 2 + toggleGap && getScaledMouseY() > toggleY && getScaledMouseY() < toggleY + toggleH) {
     antConnMode = 1;
     addDebugLog("ESP32 Antenna: modo WiFi");
     return;
@@ -1910,7 +1910,7 @@ void checkConnectionSettingsClick(float px, float py) {
     float portBtnW = 70, portBtnH = 22;
     for (int i = 0; i < min(availablePorts.length, 4); i++) {
       float pbx = px + 120 + i * (portBtnW + 5);
-      if (mouseX > pbx && mouseX < pbx + portBtnW && mouseY > configY - 11 && mouseY < configY + 11) {
+      if (getScaledMouseX() > pbx && getScaledMouseX() < pbx + portBtnW && getScaledMouseY() > configY - 11 && getScaledMouseY() < configY + 11) {
         antComPort = availablePorts[i];
         addDebugLog("ESP32 Antenna porta: " + antComPort);
         return;
@@ -1923,14 +1923,14 @@ void checkConnectionSettingsClick(float px, float py) {
     float configY = toggleY + 35;
     
     // IP field click
-    if (mouseX > px + 30 && mouseX < px + 180 && mouseY > configY && mouseY < configY + 26) {
+    if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 180 && getScaledMouseY() > configY && getScaledMouseY() < configY + 26) {
       editingField = 20;
       inputBuffer = antWifiIP;
       return;
     }
     
     // Port field click
-    if (mouseX > px + 200 && mouseX < px + 280 && mouseY > configY && mouseY < configY + 26) {
+    if (getScaledMouseX() > px + 200 && getScaledMouseX() < px + 280 && getScaledMouseY() > configY && getScaledMouseY() < configY + 26) {
       editingField = 21;
       inputBuffer = str(antWifiPort);
       return;
@@ -1940,7 +1940,7 @@ void checkConnectionSettingsClick(float px, float py) {
   // ANT Connect/Disconnect
   float configY = toggleY + 35;
   float antBtnY = configY + 30;
-  if (mouseX > px + 30 && mouseX < px + 150 && mouseY > antBtnY && mouseY < antBtnY + 32) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 150 && getScaledMouseY() > antBtnY && getScaledMouseY() < antBtnY + 32) {
     if (antConnected) disconnectAntESP32();
     else connectAntESP32();
     return;
@@ -1951,13 +1951,13 @@ void checkConnectionSettingsClick(float px, float py) {
   float rotToggleY = rotY + 25;
   
   // ROT USB/WiFi toggle
-  if (mouseX > px + 30 && mouseX < px + 30 + toggleW && mouseY > rotToggleY && mouseY < rotToggleY + toggleH) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 30 + toggleW && getScaledMouseY() > rotToggleY && getScaledMouseY() < rotToggleY + toggleH) {
     rotConnMode = 0;
     addDebugLog("ESP32 Rotatore: modo USB");
     return;
   }
   
-  if (mouseX > px + 30 + toggleW + toggleGap && mouseX < px + 30 + toggleW * 2 + toggleGap && mouseY > rotToggleY && mouseY < rotToggleY + toggleH) {
+  if (getScaledMouseX() > px + 30 + toggleW + toggleGap && getScaledMouseX() < px + 30 + toggleW * 2 + toggleGap && getScaledMouseY() > rotToggleY && getScaledMouseY() < rotToggleY + toggleH) {
     rotConnMode = 1;
     addDebugLog("ESP32 Rotatore: modo WiFi");
     return;
@@ -1969,7 +1969,7 @@ void checkConnectionSettingsClick(float px, float py) {
     float portBtnW = 70, portBtnH = 22;
     for (int i = 0; i < min(availablePorts.length, 4); i++) {
       float pbx = px + 120 + i * (portBtnW + 5);
-      if (mouseX > pbx && mouseX < pbx + portBtnW && mouseY > rotConfigY - 11 && mouseY < rotConfigY + 11) {
+      if (getScaledMouseX() > pbx && getScaledMouseX() < pbx + portBtnW && getScaledMouseY() > rotConfigY - 11 && getScaledMouseY() < rotConfigY + 11) {
         rotComPort = availablePorts[i];
         addDebugLog("ESP32 Rotatore porta: " + rotComPort);
         return;
@@ -1982,14 +1982,14 @@ void checkConnectionSettingsClick(float px, float py) {
     float rotConfigY = rotToggleY + 35;
     
     // IP field click
-    if (mouseX > px + 30 && mouseX < px + 180 && mouseY > rotConfigY && mouseY < rotConfigY + 26) {
+    if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 180 && getScaledMouseY() > rotConfigY && getScaledMouseY() < rotConfigY + 26) {
       editingField = 22;
       inputBuffer = rotWifiIP;
       return;
     }
     
     // Port field click
-    if (mouseX > px + 200 && mouseX < px + 280 && mouseY > rotConfigY && mouseY < rotConfigY + 26) {
+    if (getScaledMouseX() > px + 200 && getScaledMouseX() < px + 280 && getScaledMouseY() > rotConfigY && getScaledMouseY() < rotConfigY + 26) {
       editingField = 23;
       inputBuffer = str(rotWifiPort);
       return;
@@ -1999,7 +1999,7 @@ void checkConnectionSettingsClick(float px, float py) {
   // ROT Connect/Disconnect
   float rotConfigY = rotToggleY + 35;
   float rotBtnY = rotConfigY + 30;
-  if (mouseX > px + 30 && mouseX < px + 150 && mouseY > rotBtnY && mouseY < rotBtnY + 32) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 150 && getScaledMouseY() > rotBtnY && getScaledMouseY() < rotBtnY + 32) {
     if (rotConnected) disconnectRotESP32();
     else connectRotESP32();
     return;
@@ -2009,7 +2009,7 @@ void checkConnectionSettingsClick(float px, float py) {
   float autoY = rotBtnY + 45;
   float checkX = px + 30;
   float checkSize = 18;
-  if (mouseX > checkX && mouseX < checkX + checkSize + 200 && mouseY > autoY && mouseY < autoY + checkSize) {
+  if (getScaledMouseX() > checkX && getScaledMouseX() < checkX + checkSize + 200 && getScaledMouseY() > autoY && getScaledMouseY() < autoY + checkSize) {
     autoConnect = !autoConnect;
     addDebugLog("Auto-connect: " + (autoConnect ? "ON" : "OFF"));
     addNotification("Auto-connect " + (autoConnect ? "attivato" : "disattivato"), autoConnect ? SUCCESS : INFO);
@@ -2018,7 +2018,7 @@ void checkConnectionSettingsClick(float px, float py) {
   
   // Scan Ports
   float scanBtnY = autoY + 30;
-  if (mouseX > px + 30 && mouseX < px + 130 && mouseY > scanBtnY && mouseY < scanBtnY + 28) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 130 && getScaledMouseY() > scanBtnY && getScaledMouseY() < scanBtnY + 28) {
     scanSerialPorts();
     addNotification("Porte scansionate", INFO);
     return;
@@ -2026,14 +2026,14 @@ void checkConnectionSettingsClick(float px, float py) {
 }
 
 void checkSystemSettingsClick(float px, float py) {
-  if (mouseX > px + 30 && mouseX < px + 48 && mouseY > py + 40 && mouseY < py + 58) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 48 && getScaledMouseY() > py + 40 && getScaledMouseY() < py + 58) {
     debugMode = !debugMode;
     addDebugLog("Debug: " + (debugMode ? "ON" : "OFF"));
     return;
   }
   
   float btnY = py + 90;
-  if (mouseX > px + 30 && mouseX < px + 150 && mouseY > btnY && mouseY < btnY + 35) {
+  if (getScaledMouseX() > px + 30 && getScaledMouseX() < px + 150 && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 35) {
     resetToDefaults();
     addNotification("Reset completato", WARNING);
     return;
@@ -2044,7 +2044,7 @@ void checkDebugClick() {
   float px = 40, py = 60, pw = 720, ph = 400;
   float btnX = px + pw - 90, btnY = py + ph - 40;
   
-  if (mouseX > btnX && mouseX < btnX + 70 && mouseY > btnY && mouseY < btnY + 28) {
+  if (getScaledMouseX() > btnX && getScaledMouseX() < btnX + 70 && getScaledMouseY() > btnY && getScaledMouseY() < btnY + 28) {
     debugLog.clear();
     addDebugLog("Log cancellato");
   }
@@ -2053,7 +2053,7 @@ void checkDebugClick() {
 void checkTopBarClick() {
   float switchX = width - 75, switchY = 12, switchW = 55, switchH = 22;
   
-  if (mouseX > switchX && mouseX < switchX + switchW && mouseY > switchY && mouseY < switchY + switchH) {
+  if (getScaledMouseX() > switchX && getScaledMouseX() < switchX + switchW && getScaledMouseY() > switchY && getScaledMouseY() < switchY + switchH) {
     systemOn = !systemOn;
     addDebugLog("Sistema: " + (systemOn ? "ON" : "OFF"));
     
@@ -2076,7 +2076,7 @@ void checkNavigationClick() {
   for (int i = 0; i < 3; i++) {
     float ix = startX + i * (itemW + 8);
     
-    if (mouseX > ix && mouseX < ix + itemW && mouseY > startY && mouseY < startY + barH) {
+    if (getScaledMouseX() > ix && getScaledMouseX() < ix + itemW && getScaledMouseY() > startY && getScaledMouseY() < startY + barH) {
       if (currentScreen != i) {
         targetScreen = i;
         transitioning = true;
